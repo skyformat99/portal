@@ -31,7 +31,6 @@ type Portal interface {
 type Endpoint interface {
 	// GetID() uint32
 	Close()
-	Done() <-chan struct{}
 	SendMsg(*Message)
 	RecvMsg() *Message
 }

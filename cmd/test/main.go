@@ -22,7 +22,9 @@ func main() {
 		log.Fatal("could not connect: ", err)
 	}
 
-	go prt0.Send("payload")
+	prt0.Send("payload")
+	log.Println("SENT")
+
 	log.Println(prt1.Recv())
 
 	log.Println("OK")

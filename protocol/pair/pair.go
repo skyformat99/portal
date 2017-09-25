@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/lthibault/portal"
 )
 
@@ -54,8 +55,11 @@ func (p *pair) startReceiving(ep *pairEP) {
 	for {
 		msg := ep.ep.RecvMsg()
 		if msg == nil {
+			log.Fatal("NIL MSG")
 			return // upstream channel was closed
 		}
+
+		spew.Dump(msg)
 
 		select {
 		case p.prtl.RecvChannel() <- msg:

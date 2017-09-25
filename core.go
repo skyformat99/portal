@@ -36,7 +36,7 @@ func (p portal) Connect(addr string) (err error) {
 	}
 
 	c.Connect(p)
-	go gc(p.Done(), p.proto, c.GetEndpoint())
+	go p.gc(c.GetEndpoint())
 	return
 }
 
@@ -46,13 +46,13 @@ func (p portal) Bind(addr string) (err error) {
 		err = errors.Wrap(err, "portal bind error")
 	} else {
 		go func() {
-			<-p.Done()
+			<-p.chHalt
 			l.Close()
 		}()
 
 		go func() {
 			for ep := range l.Listen() {
-				go gc(p.Done(), p.proto, ep)
+				go p.gc(ep)
 			}
 		}()
 	}
@@ -72,10 +72,9 @@ func (p portal) Recv() (v interface{}) {
 	return
 }
 
-func (p portal) Close()                { close(p.chHalt) }
-func (p portal) Done() <-chan struct{} { return p.chHalt }
-func (p portal) SendMsg(msg *Message)  { p.chSend <- msg }
-func (p portal) RecvMsg() *Message     { return <-p.chRecv }
+func (p portal) Close()               { close(p.chHalt) }
+func (p portal) SendMsg(msg *Message) { p.chSend <- msg }
+func (p portal) RecvMsg() *Message    { return <-p.chRecv }
 
 // Implement ProtocolSocket
 func (p portal) SendChannel() <-chan *Message  { return p.chSend }
@@ -83,8 +82,8 @@ func (p portal) RecvChannel() chan<- *Message  { return p.chRecv }
 func (p portal) CloseChannel() <-chan struct{} { return p.chHalt }
 
 // gc manages the lifecycle of an endpoint
-func gc(done <-chan struct{}, proto Protocol, ep Endpoint) {
-	proto.AddEndpoint(ep)
-	<-done
-	proto.RemoveEndpoint(ep)
+func (p portal) gc(ep Endpoint) {
+	p.proto.AddEndpoint(ep)
+	<-p.chHalt
+	p.proto.RemoveEndpoint(ep)
 }
