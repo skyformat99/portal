@@ -1,11 +1,9 @@
 package pair
 
 import (
-	"log"
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/lthibault/portal"
 )
 
@@ -31,8 +29,8 @@ func (p *pair) AddEndpoint(ep portal.Endpoint) {
 		ep.Close()
 	} else {
 		p.peer = &pairEP{chHalt: make(chan struct{}), ep: ep}
-		go p.startReceiving(p.peer)
-		go p.startSending(p.peer)
+		go p.startReceiving()
+		go p.startSending()
 	}
 }
 
@@ -51,30 +49,25 @@ func (*pair) Name() string       { return "pair" }
 func (*pair) PeerNumber() uint16 { return portal.ProtoPair }
 func (*pair) PeerName() string   { return "pair" }
 
-func (p *pair) startReceiving(ep *pairEP) {
+func (p *pair) startReceiving() {
 	for {
-		msg := ep.ep.RecvMsg()
+		msg := p.peer.ep.Announce()
 		if msg == nil {
-			log.Fatal("NIL MSG")
 			return // upstream channel was closed
 		}
-
-		spew.Dump(msg)
 
 		select {
 		case p.prtl.RecvChannel() <- msg:
 		case <-p.prtl.CloseChannel():
 			return
 		}
-
 	}
 }
 
-func (p *pair) startSending(ep *pairEP) {
+func (p *pair) startSending() {
 	var msg *portal.Message
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("[ DEBUG ] %v", r)
 			msg.Free()
 		}
 	}()
@@ -88,9 +81,9 @@ func (p *pair) startSending(ep *pairEP) {
 				continue
 			}
 
-			ep.ep.SendMsg(msg) // may panic
+			p.peer.ep.Notify(msg) // may panic
 
-		case <-ep.chHalt:
+		case <-p.peer.chHalt:
 			return
 		case <-p.prtl.CloseChannel():
 			return

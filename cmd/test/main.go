@@ -22,10 +22,11 @@ func main() {
 		log.Fatal("could not connect: ", err)
 	}
 
-	prt0.Send("payload")
-	log.Println("SENT")
-
+	prt0.Send("0 to 1")
 	log.Println(prt1.Recv())
+
+	prt1.Send("1 to 0")
+	log.Println(prt0.Recv())
 
 	log.Println("OK")
 	<-sigctx.New().Done()

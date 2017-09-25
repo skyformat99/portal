@@ -31,8 +31,8 @@ type Portal interface {
 type Endpoint interface {
 	// GetID() uint32
 	Close()
-	SendMsg(*Message)
-	RecvMsg() *Message
+	Notify(*Message)
+	Announce() *Message
 }
 
 // Protocol implements messaging topography elements.  Each protocol will

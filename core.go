@@ -76,6 +76,10 @@ func (p portal) Close()               { close(p.chHalt) }
 func (p portal) SendMsg(msg *Message) { p.chSend <- msg }
 func (p portal) RecvMsg() *Message    { return <-p.chRecv }
 
+// Implement Endpoint
+func (p portal) Notify(msg *Message) { p.chRecv <- msg }
+func (p portal) Announce() *Message  { return <-p.chSend }
+
 // Implement ProtocolSocket
 func (p portal) SendChannel() <-chan *Message  { return p.chSend }
 func (p portal) RecvChannel() chan<- *Message  { return p.chRecv }
