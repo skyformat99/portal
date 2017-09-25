@@ -31,6 +31,7 @@ type Portal interface {
 type Endpoint interface {
 	// GetID() uint32
 	Close()
+	Done() <-chan struct{}
 	SendMsg(*Message)
 	RecvMsg() *Message
 }
@@ -42,7 +43,7 @@ type Protocol interface {
 	// Init is called by the core to allow the protocol to perform
 	// any initialization steps it needs.  It should save the handle
 	// for future use, as well.
-	Init(ProtocolSocket)
+	Init(ProtocolPortal)
 
 	// Shutdown is used to drain the send side.  It is only ever called
 	// when the socket is being shutdown cleanly. Protocols should use
@@ -81,11 +82,11 @@ type Protocol interface {
 	// SetOption(string, interface{}) error
 }
 
-// ProtocolSocket is the "handle" given to protocols to interface with the
+// ProtocolPortal is the "handle" given to protocols to interface with the
 // socket.  The Protocol implementation should not access any sockets or pipes
 // except by using functions made available on the ProtocolSocket.  Note
 // that all functions listed here are non-blocking.
-type ProtocolSocket interface {
+type ProtocolPortal interface {
 	// SendChannel represents the channel used to send messages.  The
 	// application injects messages to it, and the protocol consumes
 	// messages from it.  The channel may be closed when the core needs to

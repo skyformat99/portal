@@ -1,6 +1,7 @@
 package pair
 
 import (
+	"log"
 	"sync"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 
 type pair struct {
 	sync.Mutex
-	sock portal.ProtocolSocket
+	prtl portal.ProtocolPortal
 	peer *pairEP
 }
 
@@ -18,7 +19,7 @@ type pairEP struct {
 	chHalt chan struct{}
 }
 
-func (p *pair) Init(sock portal.ProtocolSocket) { p.sock = sock }
+func (p *pair) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
 func (p *pair) Shutdown(expire time.Time)       { panic("NOT IMPLEMENTED") }
 
 func (p *pair) AddEndpoint(ep portal.Endpoint) {
@@ -57,8 +58,8 @@ func (p *pair) startReceiving(ep *pairEP) {
 		}
 
 		select {
-		case p.sock.RecvChannel() <- msg:
-		case <-p.sock.CloseChannel():
+		case p.prtl.RecvChannel() <- msg:
+		case <-p.prtl.CloseChannel():
 			return
 		}
 
@@ -69,7 +70,7 @@ func (p *pair) startSending(ep *pairEP) {
 	var msg *portal.Message
 	defer func() {
 		if r := recover(); r != nil {
-			// if we can't send the message, we should free it before returning
+			log.Printf("[ DEBUG ] %v", r)
 			msg.Free()
 		}
 	}()
@@ -78,7 +79,7 @@ func (p *pair) startSending(ep *pairEP) {
 	// If the peer goes away, drop the message on the floor.
 	for {
 		select {
-		case msg = <-p.sock.SendChannel():
+		case msg = <-p.prtl.SendChannel():
 			if msg == nil {
 				continue
 			}
@@ -87,7 +88,7 @@ func (p *pair) startSending(ep *pairEP) {
 
 		case <-ep.chHalt:
 			return
-		case <-p.sock.CloseChannel():
+		case <-p.prtl.CloseChannel():
 			return
 		}
 	}
