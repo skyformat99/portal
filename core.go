@@ -1,25 +1,45 @@
 package portal
 
 import (
+	"context"
+
+	"github.com/SentimensRG/sigctx"
 	"github.com/pkg/errors"
+	"github.com/satori/go.uuid"
 )
 
+// Cfg is a base configuration struct
+type Cfg struct {
+	Ctx context.Context
+}
+
 // MakePortal is for protocol implementations
-func MakePortal(p Protocol) Portal {
-	return newPortal(p)
+func MakePortal(cfg Cfg, p Protocol) Portal {
+	var cancel context.CancelFunc
+	if cfg.Ctx == nil {
+		cfg.Ctx, cancel = context.WithCancel(sigctx.New())
+	}
+
+	return newPortal(cfg.Ctx, cancel, p)
 }
 
 type portal struct {
-	proto  Protocol
-	chHalt chan struct{}
+	id    uuid.UUID
+	proto Protocol
+
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	chSend chan *Message
 	chRecv chan *Message
 }
 
-func newPortal(p Protocol) (prtl *portal) {
+func newPortal(ctx context.Context, c context.CancelFunc, p Protocol) (prtl *portal) {
 	prtl = &portal{
+		id:     uuid.NewV4(),
 		proto:  p,
-		chHalt: make(chan struct{}),
+		ctx:    ctx,
+		cancel: c,
 		chSend: make(chan *Message),
 		chRecv: make(chan *Message),
 	}
@@ -46,7 +66,7 @@ func (p portal) Bind(addr string) (err error) {
 		err = errors.Wrap(err, "portal bind error")
 	} else {
 		go func() {
-			<-p.chHalt
+			<-p.ctx.Done()
 			l.Close()
 		}()
 
@@ -72,22 +92,23 @@ func (p portal) Recv() (v interface{}) {
 	return
 }
 
-func (p portal) Close()               { close(p.chHalt) }
+func (p portal) Close()               { p.cancel() }
 func (p portal) SendMsg(msg *Message) { p.chSend <- msg }
 func (p portal) RecvMsg() *Message    { return <-p.chRecv }
 
 // Implement Endpoint
+func (p portal) ID() uuid.UUID       { return p.id }
 func (p portal) Notify(msg *Message) { p.chRecv <- msg }
 func (p portal) Announce() *Message  { return <-p.chSend }
 
 // Implement ProtocolSocket
 func (p portal) SendChannel() <-chan *Message  { return p.chSend }
 func (p portal) RecvChannel() chan<- *Message  { return p.chRecv }
-func (p portal) CloseChannel() <-chan struct{} { return p.chHalt }
+func (p portal) CloseChannel() <-chan struct{} { return p.ctx.Done() }
 
 // gc manages the lifecycle of an endpoint
 func (p portal) gc(ep Endpoint) {
 	p.proto.AddEndpoint(ep)
-	<-p.chHalt
+	<-p.ctx.Done()
 	p.proto.RemoveEndpoint(ep)
 }

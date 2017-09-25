@@ -2,6 +2,8 @@ package portal
 
 import (
 	"time"
+
+	"github.com/satori/go.uuid"
 )
 
 // Portal is the main access handle applications use to access the protocol
@@ -29,7 +31,7 @@ type Portal interface {
 // Endpoint is used by the Protocol implementation to access the underlying
 // channel transport
 type Endpoint interface {
-	// GetID() uint32
+	ID() uuid.UUID
 	Close()
 	Notify(*Message)
 	Announce() *Message

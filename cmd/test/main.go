@@ -4,15 +4,13 @@ import (
 	"log"
 
 	"github.com/SentimensRG/sigctx"
+	"github.com/lthibault/portal"
 	"github.com/lthibault/portal/protocol/pair"
 )
 
 func main() {
-	prt0 := pair.New()
-	defer prt0.Close()
-
-	prt1 := pair.New()
-	defer prt1.Close()
+	prt0 := pair.New(portal.Cfg{})
+	prt1 := pair.New(portal.Cfg{})
 
 	if err := prt0.Bind("/test"); err != nil {
 		log.Fatal("could not bind portal to addr: ", err)
@@ -30,4 +28,6 @@ func main() {
 
 	log.Println("OK")
 	<-sigctx.New().Done()
+	prt0.Close()
+	prt1.Close()
 }

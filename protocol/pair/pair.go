@@ -38,7 +38,7 @@ func (p *pair) RemoveEndpoint(ep portal.Endpoint) {
 	p.Lock()
 	defer p.Unlock()
 
-	if peer := p.peer; peer != nil && peer.ep == ep {
+	if peer := p.peer; peer != nil && peer.ep.ID() == ep.ID() {
 		p.peer = nil
 		close(peer.chHalt)
 	}
@@ -92,6 +92,6 @@ func (p *pair) startSending() {
 }
 
 // New allocates a Portal using the PAIR protocol
-func New() portal.Portal {
-	return portal.MakePortal(&pair{})
+func New(cfg portal.Cfg) portal.Portal {
+	return portal.MakePortal(cfg, &pair{})
 }
