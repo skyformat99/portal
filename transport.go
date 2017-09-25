@@ -1,39 +1,50 @@
 package portal
 
 import (
+	"context"
 	"sync"
 
 	"github.com/pkg/errors"
 )
 
-var router = transRouter{lookup: make(map[string]*transport)}
+type bindKey uint
 
-type connector interface {
-	GetEndpoint() Endpoint
-	Connect(Endpoint)
-}
+const (
+	keySvrEndpt = bindKey(iota)
+	keyListenChan
+	keyBindAddr
+)
 
-type listener interface {
-	Listen() <-chan Endpoint
-	Close()
-}
+var transport = trans{lookup: make(map[string]bindCtx)}
 
-type transport struct {
-	svr  Endpoint
-	chEp chan Endpoint
-}
+type (
+	connector interface {
+		context.Context
+		GetEndpoint() Endpoint
+		Connect(Endpoint)
+	}
 
-func (t transport) GetEndpoint() Endpoint   { return t.svr }
-func (t transport) Connect(ep Endpoint)     { t.chEp <- ep }
-func (t transport) Listen() <-chan Endpoint { return t.chEp }
-func (t transport) Close()                  { close(t.chEp) }
+	listener interface {
+		context.Context
+		Listen() <-chan Endpoint
+	}
+)
 
-type transRouter struct {
+type bindCtx struct{ context.Context }
+
+func (bc bindCtx) Addr() string            { return bc.Value(keyBindAddr).(string) }
+func (bc bindCtx) l() chan Endpoint        { return bc.Value(keyListenChan).(chan Endpoint) }
+func (bc bindCtx) GetEndpoint() Endpoint   { return bc.Value(keySvrEndpt).(Endpoint) }
+func (bc bindCtx) Connect(ep Endpoint)     { bc.l() <- ep }
+func (bc bindCtx) Listen() <-chan Endpoint { return bc.l() }
+func (bc bindCtx) Close()                  { close(bc.l()) }
+
+type trans struct {
 	sync.RWMutex
-	lookup map[string]*transport
+	lookup map[string]bindCtx
 }
 
-func (t *transRouter) GetConnector(a string) (c connector, ok bool) {
+func (t *trans) GetConnector(a string) (c connector, ok bool) {
 	t.RLock()
 	defer t.RUnlock()
 
@@ -41,15 +52,24 @@ func (t *transRouter) GetConnector(a string) (c connector, ok bool) {
 	return
 }
 
-func (t *transRouter) GetListener(a string, ep Endpoint) (listener, error) {
+func (t *trans) GetListener(ctx context.Context) (listener, error) {
 	t.Lock()
 	defer t.Unlock()
 
-	if _, exists := t.lookup[a]; exists {
-		return nil, errors.Errorf("transport exists at %s", a)
+	bc := bindCtx{Context: ctx}
+
+	if _, exists := t.lookup[bc.Addr()]; exists {
+		return nil, errors.Errorf("transport exists at %s", bc.Addr())
 	}
 
-	tpt := &transport{svr: ep, chEp: make(chan Endpoint)}
-	t.lookup[a] = tpt
-	return tpt, nil
+	t.lookup[bc.Addr()] = bc
+	go func() {
+		<-bc.Done()
+		bc.Close()
+		t.Lock()
+		delete(t.lookup, bc.Addr())
+		t.Unlock()
+	}()
+
+	return bc, nil
 }

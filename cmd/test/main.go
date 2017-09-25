@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 
-	"github.com/SentimensRG/sigctx"
 	"github.com/lthibault/portal"
 	"github.com/lthibault/portal/protocol/pair"
 )
@@ -27,7 +26,6 @@ func main() {
 	log.Println(prt0.Recv())
 
 	log.Println("OK")
-	<-sigctx.New().Done()
 	prt0.Close()
 	prt1.Close()
 }

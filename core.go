@@ -14,13 +14,14 @@ type Cfg struct {
 }
 
 // MakePortal is for protocol implementations
-func MakePortal(cfg Cfg, p Protocol) Portal {
+func MakePortal(ctx context.Context, p Protocol) Portal {
 	var cancel context.CancelFunc
-	if cfg.Ctx == nil {
-		cfg.Ctx, cancel = context.WithCancel(sigctx.New())
+	if ctx == nil {
+		ctx = sigctx.New()
 	}
 
-	return newPortal(cfg.Ctx, cancel, p)
+	ctx, cancel = context.WithCancel(ctx)
+	return newPortal(ctx, cancel, p)
 }
 
 type portal struct {
@@ -50,29 +51,28 @@ func newPortal(ctx context.Context, c context.CancelFunc, p Protocol) (prtl *por
 
 func (p portal) Connect(addr string) (err error) {
 
-	c, ok := router.GetConnector(addr)
+	c, ok := transport.GetConnector(addr)
 	if !ok {
 		return errors.New("connection refused")
 	}
 
 	c.Connect(p)
-	go p.gc(c.GetEndpoint())
+	go p.gc(c.Done(), c.GetEndpoint())
 	return
 }
 
 func (p portal) Bind(addr string) (err error) {
+	ctx := context.WithValue(p.ctx, keyBindAddr, addr)
+	ctx = context.WithValue(ctx, keySvrEndpt, p)
+	ctx = context.WithValue(ctx, keyListenChan, make(chan Endpoint))
+
 	var l listener
-	if l, err = router.GetListener(addr, p); err != nil {
+	if l, err = transport.GetListener(ctx); err != nil {
 		err = errors.Wrap(err, "portal bind error")
 	} else {
 		go func() {
-			<-p.ctx.Done()
-			l.Close()
-		}()
-
-		go func() {
 			for ep := range l.Listen() {
-				go p.gc(ep)
+				go p.gc(l.Done(), ep)
 			}
 		}()
 	}
@@ -107,8 +107,13 @@ func (p portal) RecvChannel() chan<- *Message  { return p.chRecv }
 func (p portal) CloseChannel() <-chan struct{} { return p.ctx.Done() }
 
 // gc manages the lifecycle of an endpoint
-func (p portal) gc(ep Endpoint) {
+func (p portal) gc(chRemoteDone <-chan struct{}, ep Endpoint) {
 	p.proto.AddEndpoint(ep)
-	<-p.ctx.Done()
+
+	select {
+	case <-p.ctx.Done():
+	case <-chRemoteDone:
+	}
+
 	p.proto.RemoveEndpoint(ep)
 }
