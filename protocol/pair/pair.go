@@ -20,6 +20,8 @@ type pairEP struct {
 func (p *pair) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
 
 func (p *pair) AddEndpoint(ep portal.Endpoint) {
+	portal.MustBeCompatible(p, ep.Signature())
+
 	p.Lock()
 	defer p.Unlock()
 

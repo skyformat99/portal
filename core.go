@@ -115,9 +115,10 @@ func (p portal) SendMsg(msg *Message) { p.chSend <- msg }
 func (p portal) RecvMsg() *Message    { return <-p.chRecv }
 
 // Implement Endpoint
-func (p portal) ID() uuid.UUID       { return p.id }
-func (p portal) Notify(msg *Message) { p.chRecv <- msg }
-func (p portal) Announce() *Message  { return <-p.chSend }
+func (p portal) ID() uuid.UUID                { return p.id }
+func (p portal) Notify(msg *Message)          { p.chRecv <- msg }
+func (p portal) Announce() *Message           { return <-p.chSend }
+func (p portal) Signature() ProtocolSignature { return p.proto }
 
 // Implement ProtocolSocket
 func (p portal) SendChannel() <-chan *Message  { return p.chSend }

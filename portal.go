@@ -48,25 +48,11 @@ type Endpoint interface {
 	Close()
 	Notify(*Message)
 	Announce() *Message
+	Signature() ProtocolSignature
 }
 
-// Protocol implements messaging topography elements.  Each protocol will
-// implement Protocol and each half of a protocol pair (e.g. REQ/REP) will
-// implement Protocol.
-type Protocol interface {
-	// Init is called by the core to allow the protocol to perform
-	// any initialization steps it needs.  It should save the handle
-	// for future use, as well.
-	Init(ProtocolPortal)
-
-	// AddEndpoint is called when a new Endpoint is added to the socket.
-	// Typically this is as a result of connect or accept completing.
-	AddEndpoint(Endpoint)
-
-	// RemoveEndpoint is called when an Endpoint is removed from the socket.
-	// Typically this indicates a disconnected or closed connection.
-	RemoveEndpoint(Endpoint)
-
+// ProtocolSignature defines which protocols can talk to each other
+type ProtocolSignature interface {
 	// ProtocolNumber returns a 16-bit value for the protocol number,
 	// as assigned by the SP governing body. (IANA?)
 	Number() uint16
@@ -79,6 +65,26 @@ type Protocol interface {
 
 	// PeerName() returns the name of our peer protocol.
 	PeerName() string
+}
+
+// Protocol implements messaging topography elements.  Each protocol will
+// implement Protocol and each half of a protocol pair (e.g. REQ/REP) will
+// implement Protocol.
+type Protocol interface {
+	ProtocolSignature
+
+	// Init is called by the core to allow the protocol to perform
+	// any initialization steps it needs.  It should save the handle
+	// for future use, as well.
+	Init(ProtocolPortal)
+
+	// AddEndpoint is called when a new Endpoint is added to the socket.
+	// Typically this is as a result of connect or accept completing.
+	AddEndpoint(Endpoint)
+
+	// RemoveEndpoint is called when an Endpoint is removed from the socket.
+	// Typically this indicates a disconnected or closed connection.
+	RemoveEndpoint(Endpoint)
 }
 
 // ProtocolPortal is the "handle" given to protocols to interface with the

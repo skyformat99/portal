@@ -56,6 +56,8 @@ func (*push) PeerNumber() uint16 { return portal.ProtoPull }
 func (*push) PeerName() string   { return "pull" }
 
 func (p *push) AddEndpoint(ep portal.Endpoint) {
+	portal.MustBeCompatible(p, ep.Signature())
+
 	close(p.prtl.RecvChannel()) // NOTE : if mysterious error, maybe it's this?
 	pe := &pushEP{ep: ep, chHalt: make(chan struct{})}
 
