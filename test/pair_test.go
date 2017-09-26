@@ -1,15 +1,16 @@
-package pair
+package testpair
 
 import (
 	"testing"
 
 	"github.com/lthibault/portal"
+	"github.com/lthibault/portal/protocol/pair"
 )
 
 var (
 	recvVal interface{}
-	p0      = New(portal.Cfg{})
-	p1      = New(portal.Cfg{})
+	p0      = pair.New(portal.Cfg{})
+	p1      = pair.New(portal.Cfg{})
 )
 
 func init() {
