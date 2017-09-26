@@ -1,4 +1,8 @@
-package protocol
+package core
+
+/*
+	Core components for protocol developers.
+*/
 
 import "github.com/lthibault/portal"
 

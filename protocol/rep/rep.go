@@ -6,7 +6,7 @@ import (
 	"github.com/satori/go.uuid"
 
 	"github.com/lthibault/portal"
-	"github.com/lthibault/portal/protocol"
+	"github.com/lthibault/portal/protocol/core"
 )
 
 const defaultEptsSize = 8
@@ -45,7 +45,7 @@ func (r *rep) startSending() {
 		}
 
 		r.Lock()
-		re := r.epts[msg.Header[protocol.REQEndpt].(uuid.UUID)]
+		re := r.epts[msg.Header[core.REQEndpt].(uuid.UUID)]
 		r.Unlock()
 
 		if re == nil {
@@ -74,7 +74,7 @@ func (r *rep) startReceiving(ep portal.Endpoint) {
 			return
 		}
 
-		msg.Header[protocol.REQEndpt] = ep.ID()
+		msg.Header[core.REQEndpt] = ep.ID()
 
 		select {
 		case rq <- msg:
