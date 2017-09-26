@@ -4,10 +4,11 @@ import "github.com/lthibault/portal"
 
 type pull struct{ prtl portal.ProtocolPortal }
 
-func (p pull) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
+func (p *pull) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
 
 func (p pull) startReceiving(ep portal.Endpoint) {
 	var msg *portal.Message
+
 	rq := p.prtl.RecvChannel()
 	cq := p.prtl.CloseChannel()
 
