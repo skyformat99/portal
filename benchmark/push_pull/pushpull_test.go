@@ -1,16 +1,17 @@
-package testpair
+package benchpushpull
 
 import (
 	"testing"
 
 	"github.com/lthibault/portal"
-	"github.com/lthibault/portal/protocol/pair"
+	"github.com/lthibault/portal/protocol/pull"
+	"github.com/lthibault/portal/protocol/push"
 )
 
 var (
 	recvVal interface{}
-	p0      = pair.New(portal.Cfg{})
-	p1      = pair.New(portal.Cfg{})
+	p0      = push.New(portal.Cfg{})
+	p1      = pull.New(portal.Cfg{})
 )
 
 func init() {
