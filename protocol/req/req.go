@@ -95,3 +95,8 @@ func (r *req) RemoveEndpoint(ep portal.Endpoint) {
 		close(pe.chHalt)
 	}
 }
+
+// New allocates a Portal using the REQ protocol
+func New(cfg portal.Cfg) portal.Portal {
+	return portal.MakePortal(cfg.Ctx, &req{})
+}
