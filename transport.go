@@ -59,9 +59,8 @@ type trans struct {
 
 func (t *trans) GetConnector(a string) (c connector, ok bool) {
 	t.RLock()
-	defer t.RUnlock()
-
 	c, ok = t.lookup[a]
+	t.RUnlock()
 	return
 }
 
