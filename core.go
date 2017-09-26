@@ -27,6 +27,7 @@ func MakePortal(ctx context.Context, p Protocol) Portal {
 type portal struct {
 	id    uuid.UUID
 	proto Protocol
+	ready bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -49,8 +50,7 @@ func newPortal(ctx context.Context, c context.CancelFunc, p Protocol) (prtl *por
 	return
 }
 
-func (p portal) Connect(addr string) (err error) {
-
+func (p *portal) Connect(addr string) (err error) {
 	c, ok := transport.GetConnector(addr)
 	if !ok {
 		return errors.New("connection refused")
@@ -58,16 +58,19 @@ func (p portal) Connect(addr string) (err error) {
 
 	c.Connect(p)
 	go p.gc(c.Done(), c.GetEndpoint())
+
+	p.ready = true
+	go func() {
+		<-p.ctx.Done()
+		p.ready = false
+	}()
+
 	return
 }
 
-func (p portal) Bind(addr string) (err error) {
-	ctx := context.WithValue(p.ctx, keyBindAddr, addr)
-	ctx = context.WithValue(ctx, keySvrEndpt, p)
-	ctx = context.WithValue(ctx, keyListenChan, make(chan Endpoint))
-
+func (p *portal) Bind(addr string) (err error) {
 	var l listener
-	if l, err = transport.GetListener(ctx); err != nil {
+	if l, err = transport.GetListener(newBindCtx(addr, *p)); err != nil {
 		err = errors.Wrap(err, "portal bind error")
 	} else {
 		go func() {
@@ -76,16 +79,31 @@ func (p portal) Bind(addr string) (err error) {
 			}
 		}()
 	}
+
+	p.ready = true
+	go func() {
+		<-p.ctx.Done()
+		p.ready = false
+	}()
+
 	return
 }
 
 func (p portal) Send(v interface{}) {
+	if !p.ready {
+		panic(errors.New("send to disconnected portal"))
+	}
+
 	msg := NewMsg()
 	msg.Value = v
 	p.SendMsg(msg)
 }
 
 func (p portal) Recv() (v interface{}) {
+	if !p.ready {
+		panic(errors.New("recv from disconnected portal"))
+	}
+
 	msg := p.RecvMsg()
 	v = msg.Value
 	msg.Free()

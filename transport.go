@@ -10,14 +10,20 @@ import (
 type bindKey uint
 
 const (
-	keySvrEndpt = bindKey(iota)
+	keySvrEndpt bindKey = iota
 	keyListenChan
 	keyBindAddr
 )
 
-var transport = trans{lookup: make(map[string]bindCtx)}
+var transport = trans{lookup: make(map[string]*bindCtx)}
 
 type (
+	transporter interface {
+		Connect(addr string) error
+		Bind(addr string) error
+		Close()
+	}
+
 	connector interface {
 		context.Context
 		GetEndpoint() Endpoint
@@ -32,6 +38,13 @@ type (
 
 type bindCtx struct{ context.Context }
 
+func newBindCtx(addr string, p portal) *bindCtx {
+	ctx := context.WithValue(p.ctx, keyBindAddr, addr)
+	ctx = context.WithValue(ctx, keySvrEndpt, p)
+	ctx = context.WithValue(ctx, keyListenChan, make(chan Endpoint))
+	return &bindCtx{Context: ctx}
+}
+
 func (bc bindCtx) Addr() string            { return bc.Value(keyBindAddr).(string) }
 func (bc bindCtx) l() chan Endpoint        { return bc.Value(keyListenChan).(chan Endpoint) }
 func (bc bindCtx) GetEndpoint() Endpoint   { return bc.Value(keySvrEndpt).(Endpoint) }
@@ -41,7 +54,7 @@ func (bc bindCtx) Close()                  { close(bc.l()) }
 
 type trans struct {
 	sync.RWMutex
-	lookup map[string]bindCtx
+	lookup map[string]*bindCtx
 }
 
 func (t *trans) GetConnector(a string) (c connector, ok bool) {
@@ -56,7 +69,7 @@ func (t *trans) GetListener(ctx context.Context) (listener, error) {
 	t.Lock()
 	defer t.Unlock()
 
-	bc := bindCtx{Context: ctx}
+	bc := &bindCtx{Context: ctx}
 
 	if _, exists := t.lookup[bc.Addr()]; exists {
 		return nil, errors.Errorf("transport exists at %s", bc.Addr())

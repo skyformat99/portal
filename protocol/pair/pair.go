@@ -2,7 +2,6 @@ package pair
 
 import (
 	"sync"
-	"time"
 
 	"github.com/lthibault/portal"
 )
@@ -19,7 +18,6 @@ type pairEP struct {
 }
 
 func (p *pair) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
-func (p *pair) Shutdown(expire time.Time)       { panic("NOT IMPLEMENTED") }
 
 func (p *pair) AddEndpoint(ep portal.Endpoint) {
 	p.Lock()
@@ -39,6 +37,7 @@ func (p *pair) RemoveEndpoint(ep portal.Endpoint) {
 	defer p.Unlock()
 
 	if peer := p.peer; peer != nil && peer.ep.ID() == ep.ID() {
+		ep.Close()
 		p.peer = nil
 		close(peer.chHalt)
 	}

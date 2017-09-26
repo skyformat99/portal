@@ -1,31 +1,44 @@
 package portal
 
 import (
-	"time"
-
 	"github.com/satori/go.uuid"
 )
+
+type recver interface {
+	// RecvMsg receives a complete message, including the message header,
+	// which is useful for protocols in raw mode.
+	RecvMsg() *Message
+	Recv() interface{}
+}
+
+type sender interface {
+	// SendMsg puts the message on the outbound send.  It works like Send,
+	// but allows the caller to supply message headers.  AGAIN, the Socket
+	// ASSUMES OWNERSHIP OF THE MESSAGE.
+	SendMsg(*Message)
+	Send(interface{})
+}
+
+// ReadOnly is the portal equivalent of <-chan
+type ReadOnly interface {
+	transporter
+	recver
+}
+
+// WriteOnly is the portal equivalent of chan<-
+type WriteOnly interface {
+	transporter
+	sender
+}
 
 // Portal is the main access handle applications use to access the protocol
 // system.  It is an abstraction of an application's "connection" to a
 // messaging topology.  Applications can have more than one Socket open
 // at a time.
 type Portal interface {
-	Connect(addr string) error
-	Bind(addr string) error
-	Close()
-
-	Send(interface{})
-	Recv() interface{}
-
-	// SendMsg puts the message on the outbound send.  It works like Send,
-	// but allows the caller to supply message headers.  AGAIN, the Socket
-	// ASSUMES OWNERSHIP OF THE MESSAGE.
-	SendMsg(*Message)
-
-	// RecvMsg receives a complete message, including the message header,
-	// which is useful for protocols in raw mode.
-	RecvMsg() *Message
+	transporter
+	sender
+	recver
 }
 
 // Endpoint is used by the Protocol implementation to access the underlying
@@ -45,11 +58,6 @@ type Protocol interface {
 	// any initialization steps it needs.  It should save the handle
 	// for future use, as well.
 	Init(ProtocolPortal)
-
-	// Shutdown is used to drain the send side.  It is only ever called
-	// when the socket is being shutdown cleanly. Protocols should use
-	// the linger time, and wait up to that time for sockets to drain.
-	Shutdown(time.Time)
 
 	// AddEndpoint is called when a new Endpoint is added to the socket.
 	// Typically this is as a result of connect or accept completing.
@@ -71,16 +79,6 @@ type Protocol interface {
 
 	// PeerName() returns the name of our peer protocol.
 	PeerName() string
-
-	// // GetOption is used to retrieve the current value of an option.
-	// // If the protocol doesn't recognize the option, EBadOption should
-	// // be returned.
-	// GetOption(string) (interface{}, error)
-	//
-	// // SetOption is used to set an option.  EBadOption is returned if
-	// // the option name is not recognized, EBadValue if the value is
-	// // invalid.
-	// SetOption(string, interface{}) error
 }
 
 // ProtocolPortal is the "handle" given to protocols to interface with the
