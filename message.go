@@ -7,16 +7,16 @@ import (
 
 // TODO : rename to something like "packet" or "payload"
 
-const (
-	// poolSize          = 8
-	defaultHeaderSize = 8
-)
+const defaultHeaderSize = 8
+
+// HeaderKey identifies a field in message headers
+type HeaderKey uint32
 
 var msgPool = messagePool{
 	Pool: sync.Pool{New: func() interface{} {
 		return &Message{
 			refcnt: 1,
-			Header: make(map[string]interface{}, defaultHeaderSize),
+			Header: make(map[HeaderKey]interface{}, defaultHeaderSize),
 		}
 	}},
 }
@@ -35,7 +35,7 @@ func (pool *messagePool) Put(msg *Message) {
 
 // Message wraps a value and sends it down the portal
 type Message struct {
-	Header map[string]interface{}
+	Header map[HeaderKey]interface{}
 	Value  interface{}
 
 	refcnt int32
