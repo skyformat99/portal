@@ -28,6 +28,7 @@ func (p *push) startSending(ep *pushEP) {
 	defer func() {
 		if r := recover(); r != nil {
 			msg.Free()
+			panic(r)
 		}
 	}()
 

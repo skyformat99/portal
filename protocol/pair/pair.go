@@ -73,6 +73,7 @@ func (p *pair) startSending() {
 	defer func() {
 		if r := recover(); r != nil {
 			msg.Free()
+			panic(r)
 		}
 	}()
 
