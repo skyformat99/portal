@@ -49,15 +49,18 @@ func (*pair) PeerNumber() uint16 { return portal.ProtoPair }
 func (*pair) PeerName() string   { return "pair" }
 
 func (p *pair) startReceiving() {
+	var msg *portal.Message
+	rq := p.prtl.RecvChannel()
+	cq := p.prtl.CloseChannel()
+
 	for {
-		msg := p.peer.ep.Announce()
-		if msg == nil {
+		if msg = p.peer.ep.Announce(); msg == nil {
 			return // upstream channel was closed
 		}
 
 		select {
-		case p.prtl.RecvChannel() <- msg:
-		case <-p.prtl.CloseChannel():
+		case rq <- msg:
+		case <-cq:
 			return
 		}
 	}
@@ -71,21 +74,23 @@ func (p *pair) startSending() {
 		}
 	}()
 
+	sq := p.prtl.SendChannel()
+	cq := p.prtl.CloseChannel()
+
 	// This is pretty easy because we have only one peer at a time.
 	// If the peer goes away, drop the message on the floor.
 	for {
 		select {
-		case msg = <-p.prtl.SendChannel():
-			if msg == nil {
-				continue
-			}
-
-			p.peer.ep.Notify(msg) // may panic
-
 		case <-p.peer.chHalt:
 			return
-		case <-p.prtl.CloseChannel():
+		case <-cq:
 			return
+		case msg = <-sq:
+			if msg == nil {
+				sq = p.prtl.SendChannel()
+			} else {
+				p.peer.ep.Notify(msg) // may panic
+			}
 		}
 	}
 }
