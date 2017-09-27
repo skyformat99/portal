@@ -4,27 +4,22 @@ import (
 	"sync"
 
 	"github.com/lthibault/portal"
-	"github.com/satori/go.uuid"
+	proto "github.com/lthibault/portal/protocol/core"
 )
 
 type req struct {
 	sync.Mutex
 
 	prtl portal.ProtocolPortal
-	epts map[uuid.UUID]*reqEP
-}
-
-type reqEP struct {
-	ep     portal.Endpoint
-	chHalt chan struct{}
+	n    proto.Neighborhood
 }
 
 func (r *req) Init(prtl portal.ProtocolPortal) {
 	r.prtl = prtl
-	r.epts = make(map[uuid.UUID]*reqEP, 8)
+	r.n = proto.NewNeighborhood()
 }
 
-func (r *req) startSending(pe *reqEP) {
+func (r *req) startSending(pe proto.PeerEndpoint) {
 
 	// NB: Because this function is only called when an endpoint is
 	// added, we can reasonably safely cache the channels -- they won't
@@ -39,29 +34,34 @@ func (r *req) startSending(pe *reqEP) {
 		case msg = <-sq:
 		case <-cq:
 			return
-		case <-pe.chHalt:
+		case <-pe.Done():
 			return
 		}
 
-		pe.ep.Notify(msg)
+		pe.Notify(msg)
 	}
 }
 
 func (r *req) startReceiving(ep portal.Endpoint) {
+	var msg *portal.Message
+	defer func() {
+		if msg != nil {
+			msg.Free()
+		}
+		if r := recover(); r != nil {
+			msg.Free()
+			panic(r)
+		}
+	}()
+
 	rq := r.prtl.RecvChannel()
 	cq := r.prtl.CloseChannel()
 
-	var msg *portal.Message
-	for {
-		if msg = ep.Announce(); msg == nil {
-			break
-		}
-
+	for msg = ep.Announce(); msg != nil; msg = ep.Announce() {
 		select {
-		case rq <- msg:
 		case <-cq:
-			msg.Free()
 			break
+		case rq <- msg:
 		}
 	}
 }
@@ -74,27 +74,15 @@ func (*req) PeerName() string   { return "rep" }
 func (r *req) AddEndpoint(ep portal.Endpoint) {
 	portal.MustBeCompatible(r, ep.Signature())
 
-	pe := &reqEP{ep: ep, chHalt: make(chan struct{})}
+	pe := proto.NewPeerEP(ep)
 
-	r.Lock()
-	r.epts[ep.ID()] = pe
-	r.Unlock()
+	r.n.SetPeer(ep.ID(), pe)
 
 	go r.startSending(pe)
 	go r.startReceiving(ep)
 }
 
-func (r *req) RemoveEndpoint(ep portal.Endpoint) {
-	id := ep.ID()
-
-	r.Lock()
-	pe := r.epts[id]
-	r.Unlock()
-
-	if pe != nil {
-		close(pe.chHalt)
-	}
-}
+func (r *req) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
 
 // New allocates a Portal using the REQ protocol
 func New(cfg portal.Cfg) portal.Portal {

@@ -1,29 +1,21 @@
 package push
 
 import (
-	"sync"
-
 	"github.com/lthibault/portal"
-	"github.com/satori/go.uuid"
+	"github.com/lthibault/portal/protocol/core"
 )
 
 type push struct {
-	sync.Mutex
 	prtl portal.ProtocolPortal
-	epts map[uuid.UUID]*pushEP
-}
-
-type pushEP struct {
-	ep     portal.Endpoint
-	chHalt chan struct{}
+	n    proto.Neighborhood
 }
 
 func (p *push) Init(prtl portal.ProtocolPortal) {
 	p.prtl = prtl
-	p.epts = make(map[uuid.UUID]*pushEP, 1) // usually we only have 1 PULLer
+	p.n = proto.NewNeighborhood()
 }
 
-func (p *push) startSending(ep *pushEP) {
+func (p *push) startSending(pe proto.PeerEndpoint) {
 	var msg *portal.Message
 	defer func() {
 		if r := recover(); r != nil {
@@ -39,13 +31,13 @@ func (p *push) startSending(ep *pushEP) {
 		select {
 		case <-cq:
 			return
-		case <-ep.chHalt:
+		case <-pe.Done():
 			return
 		case msg = <-sq:
 			if msg == nil {
 				sq = p.prtl.SendChannel()
 			} else {
-				ep.ep.Notify(msg)
+				pe.Notify(msg)
 			}
 		}
 	}
@@ -58,38 +50,16 @@ func (*push) PeerName() string   { return "pull" }
 
 func (p *push) AddEndpoint(ep portal.Endpoint) {
 	portal.MustBeCompatible(p, ep.Signature())
-
 	close(p.prtl.RecvChannel()) // NOTE : if mysterious error, maybe it's this?
-	pe := &pushEP{ep: ep, chHalt: make(chan struct{})}
 
-	p.Lock()
-	p.epts[ep.ID()] = pe
-	p.Unlock()
-
+	pe := proto.NewPeerEP(ep)
+	p.n.SetPeer(ep.ID(), pe)
 	go p.startSending(pe)
 }
 
-func (p *push) RemoveEndpoint(ep portal.Endpoint) {
-	id := ep.ID()
-
-	p.Lock()
-	pe := p.epts[id]
-	delete(p.epts, id)
-	p.Unlock()
-
-	if pe != nil {
-		close(pe.chHalt)
-	}
-}
+func (p *push) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
 
 // New allocates a WriteOnly Portal using the PUSH protocol
 func New(cfg portal.Cfg) portal.WriteOnly {
-
-	// The anonymous "guard" struct prevents users from recasting push portals
-	// into read-write portals through type assertions or type switches.
-	// For example, `myPushPortal.(portal.Portal)` will fail.
-
-	return struct{ portal.WriteOnly }{
-		WriteOnly: portal.MakePortal(cfg.Ctx, &push{}),
-	}
+	return proto.WriteGuard(portal.MakePortal(cfg.Ctx, &push{}))
 }

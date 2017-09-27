@@ -3,84 +3,59 @@ package rep
 import (
 	"sync"
 
-	"github.com/satori/go.uuid"
-
 	"github.com/lthibault/portal"
-	"github.com/lthibault/portal/protocol/core"
+	proto "github.com/lthibault/portal/protocol/core"
 )
 
-const defaultEptsSize = 8
-
-type repEP struct {
-	chHalt chan struct{}
-	ep     portal.Endpoint
-}
+const eqBufSize = 8
 
 type rep struct {
 	sync.Mutex
 	prtl portal.ProtocolPortal
-	epts map[uuid.UUID]*repEP
+	n    proto.Neighborhood
 }
 
 func (r *rep) Init(prtl portal.ProtocolPortal) {
 	r.prtl = prtl
-	r.epts = make(map[uuid.UUID]*repEP, defaultEptsSize)
-	go r.startSending()
+	r.n = proto.NewNeighborhood()
 }
 
-func (r *rep) startSending() {
-	cq := r.prtl.CloseChannel()
-	sq := r.prtl.SendChannel()
-
-	var msg *portal.Message
-	for {
-		select {
-		case msg = <-sq:
-			if msg == nil {
-				sq = r.prtl.SendChannel()
-				continue
-			}
-		case <-cq:
-			return
-		}
-
-		r.Lock()
-		re := r.epts[msg.Header[core.REQEndpt].(uuid.UUID)]
-		r.Unlock()
-
-		if re == nil {
-			msg.Free()
-		} else {
-			re.ep.Notify(msg)
-		}
-	}
-}
-
-func (r *rep) startReceiving(ep portal.Endpoint) {
+func (r *rep) startReceiving(pe proto.PeerEndpoint) {
 	var msg *portal.Message
 	defer func() {
+		if msg != nil {
+			msg.Free()
+		}
 		if r := recover(); r != nil {
-			// caller might want to catch panics.  avoid memleak
 			msg.Free()
 			panic(r)
 		}
 	}()
 
-	rq := r.prtl.RecvChannel()
 	cq := r.prtl.CloseChannel()
+	rq := r.prtl.RecvChannel()
+	sq := r.prtl.SendChannel()
 
-	for {
-		if msg = ep.Announce(); msg == nil {
-			return
-		}
-
-		msg.Header[core.REQEndpt] = ep.ID()
+	for msg = pe.Announce(); msg != nil; msg = pe.Announce() {
+		r.Lock()
 
 		select {
-		case rq <- msg:
 		case <-cq:
-			msg.Free()
+			r.Unlock()
 			return
+		case rq <- msg:
+			select {
+			case <-cq:
+				r.Unlock()
+				return
+			case <-pe.Done():
+				msg.Free()
+				r.Unlock()
+				continue
+			case msg = <-sq:
+				pe.Notify(msg)
+				r.Unlock()
+			}
 		}
 	}
 }
@@ -93,28 +68,13 @@ func (*rep) PeerName() string   { return "req" }
 func (r *rep) AddEndpoint(ep portal.Endpoint) {
 	portal.MustBeCompatible(r, ep.Signature())
 
-	re := &repEP{ep: ep, chHalt: make(chan struct{})}
+	pe := proto.NewPeerEP(ep)
+	r.n.SetPeer(ep.ID(), pe)
 
-	r.Lock()
-	r.epts[ep.ID()] = re
-	r.Unlock()
-
-	go r.startReceiving(ep)
-	go r.startSending()
+	go r.startReceiving(pe)
 }
 
-func (r *rep) RemoveEndpoint(ep portal.Endpoint) {
-	id := ep.ID()
-
-	r.Lock()
-	re := r.epts[id]
-	delete(r.epts, id)
-	r.Unlock()
-
-	if re != nil {
-		close(re.chHalt)
-	}
-}
+func (r *rep) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
 
 // New allocates a new REP portal
 func New(cfg portal.Cfg) portal.Portal {

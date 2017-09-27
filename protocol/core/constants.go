@@ -1,4 +1,4 @@
-package core
+package proto
 
 /*
 	Core components for protocol developers.

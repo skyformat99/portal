@@ -1,6 +1,9 @@
 package pull
 
-import "github.com/lthibault/portal"
+import (
+	"github.com/lthibault/portal"
+	"github.com/lthibault/portal/protocol/core"
+)
 
 type pull struct{ prtl portal.ProtocolPortal }
 
@@ -8,6 +11,14 @@ func (p *pull) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
 
 func (p pull) startReceiving(ep portal.Endpoint) {
 	var msg *portal.Message
+	defer func() {
+		if msg != nil {
+			msg.Free()
+		}
+		if r := recover(); r != nil {
+			panic(r)
+		}
+	}()
 
 	rq := p.prtl.RecvChannel()
 	cq := p.prtl.CloseChannel()
@@ -38,12 +49,5 @@ func (p *pull) AddEndpoint(ep portal.Endpoint) {
 
 // New allocates a Portal using the PULL protocol
 func New(cfg portal.Cfg) portal.ReadOnly {
-
-	// The anonymous "guard" struct prevents users from recasting pull portals
-	// into read-write portals through type assertions or type switches.
-	// For example, `myPushPortal.(portal.Portal)` will fail.
-
-	return struct{ portal.ReadOnly }{
-		ReadOnly: portal.MakePortal(cfg.Ctx, &pull{}),
-	}
+	return proto.ReadGuard(portal.MakePortal(cfg.Ctx, &pull{}))
 }

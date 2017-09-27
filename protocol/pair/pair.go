@@ -4,18 +4,19 @@ import (
 	"sync"
 
 	"github.com/lthibault/portal"
+	"github.com/lthibault/portal/protocol/core"
 )
 
 type pair struct {
 	sync.Mutex
 	prtl portal.ProtocolPortal
-	peer *pairEP
+	peer proto.PeerEndpoint
 }
 
-type pairEP struct {
-	ep     portal.Endpoint
-	chHalt chan struct{}
-}
+// type pairEP struct {
+// 	ep     portal.Endpoint
+// 	chHalt chan struct{}
+// }
 
 func (p *pair) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
 
@@ -28,7 +29,7 @@ func (p *pair) AddEndpoint(ep portal.Endpoint) {
 	if p.peer != nil { // we already have a conn, reject this one
 		ep.Close()
 	} else {
-		p.peer = &pairEP{chHalt: make(chan struct{}), ep: ep}
+		p.peer = proto.NewPeerEP(ep)
 		go p.startReceiving()
 		go p.startSending()
 	}
@@ -38,10 +39,10 @@ func (p *pair) RemoveEndpoint(ep portal.Endpoint) {
 	p.Lock()
 	defer p.Unlock()
 
-	if peer := p.peer; peer != nil && peer.ep.ID() == ep.ID() {
+	if peer := p.peer; peer != nil && peer.ID() == ep.ID() {
 		ep.Close()
 		p.peer = nil
-		close(peer.chHalt)
+		peer.Close()
 	}
 }
 
@@ -52,14 +53,19 @@ func (*pair) PeerName() string   { return "pair" }
 
 func (p *pair) startReceiving() {
 	var msg *portal.Message
+	defer func() {
+		if msg != nil {
+			msg.Free()
+		}
+		if r := recover(); r != nil {
+			panic(r)
+		}
+	}()
+
 	rq := p.prtl.RecvChannel()
 	cq := p.prtl.CloseChannel()
 
-	for {
-		if msg = p.peer.ep.Announce(); msg == nil {
-			return // upstream channel was closed
-		}
-
+	for msg = p.peer.Announce(); msg != nil; p.peer.Announce() {
 		select {
 		case rq <- msg:
 		case <-cq:
@@ -69,22 +75,16 @@ func (p *pair) startReceiving() {
 }
 
 func (p *pair) startSending() {
-	var msg *portal.Message
-	defer func() {
-		if r := recover(); r != nil {
-			msg.Free()
-			panic(r)
-		}
-	}()
-
 	sq := p.prtl.SendChannel()
 	cq := p.prtl.CloseChannel()
+	pcq := p.peer.Done()
 
 	// This is pretty easy because we have only one peer at a time.
 	// If the peer goes away, drop the message on the floor.
+	var msg *portal.Message
 	for {
 		select {
-		case <-p.peer.chHalt:
+		case <-pcq:
 			return
 		case <-cq:
 			return
@@ -92,7 +92,7 @@ func (p *pair) startSending() {
 			if msg == nil {
 				sq = p.prtl.SendChannel()
 			} else {
-				p.peer.ep.Notify(msg) // may panic
+				p.peer.Notify(msg) // may panic
 			}
 		}
 	}
