@@ -48,5 +48,11 @@ func (m *Message) Free() {
 	}
 }
 
+// Ref increments the reference count on the message.  Note that since the
+// underlying message is actually shared, consumers must take care not
+// to modify the message.  Applications should *NOT* make use of this
+// function -- it is intended for Protocol, Transport and internal use only.
+func (m *Message) Ref() { atomic.AddInt32(&m.refcnt, 1) }
+
 // NewMsg returns a message with a single refcount
 func NewMsg() *Message { return msgPool.Get() }

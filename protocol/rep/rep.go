@@ -20,7 +20,7 @@ func (r *rep) Init(prtl portal.ProtocolPortal) {
 	r.n = proto.NewNeighborhood()
 }
 
-func (r *rep) startReceiving(pe proto.PeerEndpoint) {
+func (r rep) startServing(pe proto.PeerEndpoint) {
 	var msg *portal.Message
 	defer func() {
 		if msg != nil {
@@ -53,28 +53,33 @@ func (r *rep) startReceiving(pe proto.PeerEndpoint) {
 				r.Unlock()
 				continue
 			case msg = <-sq:
-				pe.Notify(msg)
-				r.Unlock()
+				if msg == nil {
+					sq = r.prtl.SendChannel()
+					r.Unlock()
+				} else {
+					pe.Notify(msg)
+					r.Unlock()
+				}
 			}
 		}
 	}
 }
 
-func (*rep) Number() uint16     { return portal.ProtoRep }
-func (*rep) PeerNumber() uint16 { return portal.ProtoReq }
-func (*rep) Name() string       { return "rep" }
-func (*rep) PeerName() string   { return "req" }
+func (rep) Number() uint16     { return portal.ProtoRep }
+func (rep) PeerNumber() uint16 { return portal.ProtoReq }
+func (rep) Name() string       { return "rep" }
+func (rep) PeerName() string   { return "req" }
 
-func (r *rep) AddEndpoint(ep portal.Endpoint) {
+func (r rep) AddEndpoint(ep portal.Endpoint) {
 	portal.MustBeCompatible(r, ep.Signature())
 
 	pe := proto.NewPeerEP(ep)
 	r.n.SetPeer(ep.ID(), pe)
 
-	go r.startReceiving(pe)
+	go r.startServing(pe)
 }
 
-func (r *rep) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
+func (r rep) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
 
 // New allocates a new REP portal
 func New(cfg portal.Cfg) portal.Portal {

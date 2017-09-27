@@ -15,7 +15,7 @@ func (p *push) Init(prtl portal.ProtocolPortal) {
 	p.n = proto.NewNeighborhood()
 }
 
-func (p *push) startSending(pe proto.PeerEndpoint) {
+func (p push) startSending(pe proto.PeerEndpoint) {
 	var msg *portal.Message
 	defer func() {
 		if r := recover(); r != nil {
@@ -43,12 +43,12 @@ func (p *push) startSending(pe proto.PeerEndpoint) {
 	}
 }
 
-func (*push) Number() uint16     { return portal.ProtoPush }
-func (*push) Name() string       { return "push" }
-func (*push) PeerNumber() uint16 { return portal.ProtoPull }
-func (*push) PeerName() string   { return "pull" }
+func (push) Number() uint16     { return portal.ProtoPush }
+func (push) Name() string       { return "push" }
+func (push) PeerNumber() uint16 { return portal.ProtoPull }
+func (push) PeerName() string   { return "pull" }
 
-func (p *push) AddEndpoint(ep portal.Endpoint) {
+func (p push) AddEndpoint(ep portal.Endpoint) {
 	portal.MustBeCompatible(p, ep.Signature())
 	close(p.prtl.RecvChannel()) // NOTE : if mysterious error, maybe it's this?
 
@@ -57,7 +57,7 @@ func (p *push) AddEndpoint(ep portal.Endpoint) {
 	go p.startSending(pe)
 }
 
-func (p *push) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
+func (p push) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
 
 // New allocates a WriteOnly Portal using the PUSH protocol
 func New(cfg portal.Cfg) portal.WriteOnly {

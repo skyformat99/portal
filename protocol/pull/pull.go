@@ -36,13 +36,13 @@ func (p pull) startReceiving(ep portal.Endpoint) {
 	}
 }
 
-func (*pull) Number() uint16                    { return portal.ProtoPull }
-func (*pull) Name() string                      { return "pull" }
-func (*pull) PeerNumber() uint16                { return portal.ProtoPush }
-func (*pull) PeerName() string                  { return "push" }
-func (*pull) RemoveEndpoint(ep portal.Endpoint) {}
+func (pull) Number() uint16                    { return portal.ProtoPull }
+func (pull) Name() string                      { return "pull" }
+func (pull) PeerNumber() uint16                { return portal.ProtoPush }
+func (pull) PeerName() string                  { return "push" }
+func (pull) RemoveEndpoint(ep portal.Endpoint) {}
 
-func (p *pull) AddEndpoint(ep portal.Endpoint) {
+func (p pull) AddEndpoint(ep portal.Endpoint) {
 	portal.MustBeCompatible(p, ep.Signature())
 	go p.startReceiving(ep)
 }

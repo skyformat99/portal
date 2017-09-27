@@ -1,15 +1,11 @@
 package req
 
 import (
-	"sync"
-
 	"github.com/lthibault/portal"
 	proto "github.com/lthibault/portal/protocol/core"
 )
 
 type req struct {
-	sync.Mutex
-
 	prtl portal.ProtocolPortal
 	n    proto.Neighborhood
 }
@@ -19,7 +15,7 @@ func (r *req) Init(prtl portal.ProtocolPortal) {
 	r.n = proto.NewNeighborhood()
 }
 
-func (r *req) startSending(pe proto.PeerEndpoint) {
+func (r req) startSending(pe proto.PeerEndpoint) {
 
 	// NB: Because this function is only called when an endpoint is
 	// added, we can reasonably safely cache the channels -- they won't
@@ -42,7 +38,7 @@ func (r *req) startSending(pe proto.PeerEndpoint) {
 	}
 }
 
-func (r *req) startReceiving(ep portal.Endpoint) {
+func (r req) startReceiving(ep portal.Endpoint) {
 	var msg *portal.Message
 	defer func() {
 		if msg != nil {
@@ -66,12 +62,12 @@ func (r *req) startReceiving(ep portal.Endpoint) {
 	}
 }
 
-func (*req) Number() uint16     { return portal.ProtoReq }
-func (*req) PeerNumber() uint16 { return portal.ProtoRep }
-func (*req) Name() string       { return "req" }
-func (*req) PeerName() string   { return "rep" }
+func (req) Number() uint16     { return portal.ProtoReq }
+func (req) PeerNumber() uint16 { return portal.ProtoRep }
+func (req) Name() string       { return "req" }
+func (req) PeerName() string   { return "rep" }
 
-func (r *req) AddEndpoint(ep portal.Endpoint) {
+func (r req) AddEndpoint(ep portal.Endpoint) {
 	portal.MustBeCompatible(r, ep.Signature())
 
 	pe := proto.NewPeerEP(ep)
@@ -82,7 +78,7 @@ func (r *req) AddEndpoint(ep portal.Endpoint) {
 	go r.startReceiving(ep)
 }
 
-func (r *req) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
+func (r req) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
 
 // New allocates a Portal using the REQ protocol
 func New(cfg portal.Cfg) portal.Portal {

@@ -28,6 +28,9 @@ func (p peerEP) Close()                { close(p.cq) }
 
 // Neighborhood maintains a map of PeerEndpoints
 type Neighborhood interface {
+	RMap() (map[uuid.UUID]PeerEndpoint, func())
+	WMap() (map[uuid.UUID]PeerEndpoint, func())
+
 	SetPeer(uuid.UUID, PeerEndpoint)
 	GetPeer(uuid.UUID) (PeerEndpoint, bool)
 	DropPeer(uuid.UUID)
@@ -41,6 +44,16 @@ type neighborhood struct {
 // NewNeighborhood initializes a Neighborhood
 func NewNeighborhood() Neighborhood {
 	return &neighborhood{epts: make(map[uuid.UUID]PeerEndpoint)}
+}
+
+func (n *neighborhood) RMap() (map[uuid.UUID]PeerEndpoint, func()) {
+	n.RLock()
+	return n.epts, n.RUnlock
+}
+
+func (n *neighborhood) WMap() (map[uuid.UUID]PeerEndpoint, func()) {
+	n.Lock()
+	return n.epts, n.Unlock
 }
 
 func (n *neighborhood) SetPeer(id uuid.UUID, pe PeerEndpoint) {
