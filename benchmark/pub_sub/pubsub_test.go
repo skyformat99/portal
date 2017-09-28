@@ -1,47 +1,37 @@
-package benchreqrep
+package benchpubsub
 
 import (
 	"testing"
 
 	"github.com/lthibault/portal"
-	"github.com/lthibault/portal/protocol/rep"
-	"github.com/lthibault/portal/protocol/req"
+	"github.com/lthibault/portal/protocol/pub"
+	"github.com/lthibault/portal/protocol/sub"
 )
 
 var (
-	i       uint64
-	recvVal uint64
-	p0      = req.New(portal.Cfg{})
-	p1      = rep.New(portal.Cfg{})
+	recvVal interface{}
+	p0      = pub.New(portal.Cfg{})
+	p1      = sub.New(portal.Cfg{})
 )
 
 func init() {
 	var err error
-	if err = p0.Bind("/"); err != nil {
+	if err = p1.Bind("/"); err != nil {
 		panic(err)
 	}
 
-	if err = p1.Connect("/"); err != nil {
+	p1.Subscribe(sub.TopicAll)
+
+	if err = p0.Connect("/"); err != nil {
 		panic(err)
 	}
-}
-
-func increment() {
-	i = p1.Recv().(uint64)
-	i++
-	p1.Send(i)
-}
-
-func send() {
-	go p0.Send(recvVal)
-	recvVal = p0.Recv().(uint64)
 }
 
 func bench(i int, b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
-		go send()
-		increment()
+		go p0.Send(n)
+		recvVal = p1.Recv()
 	}
 }
 

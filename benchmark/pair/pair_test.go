@@ -24,7 +24,7 @@ func init() {
 	}
 }
 
-func benchPair(i int, b *testing.B) {
+func bench(i int, b *testing.B) {
 	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
 		go p0.Send(n)
@@ -32,10 +32,10 @@ func benchPair(i int, b *testing.B) {
 	}
 }
 
-func BenchmarkPair10(b *testing.B)         { benchPair(10, b) }
-func BenchmarkPair100(b *testing.B)        { benchPair(100, b) }
-func BenchmarkPair1000(b *testing.B)       { benchPair(1000, b) }
-func BenchmarkPair10000(b *testing.B)      { benchPair(10000, b) }
-func BenchmarkPair100000(b *testing.B)     { benchPair(100000, b) }
-func BenchmarkPair1000000(b *testing.B)    { benchPair(1000000, b) }
-func BenchmarkPair1000000000(b *testing.B) { benchPair(1000000000, b) }
+func Benchmark10(b *testing.B)         { bench(10, b) }
+func Benchmark100(b *testing.B)        { bench(100, b) }
+func Benchmark1000(b *testing.B)       { bench(1000, b) }
+func Benchmark10000(b *testing.B)      { bench(10000, b) }
+func Benchmark100000(b *testing.B)     { bench(100000, b) }
+func Benchmark1000000(b *testing.B)    { bench(1000000, b) }
+func Benchmark1000000000(b *testing.B) { bench(1000000000, b) }
