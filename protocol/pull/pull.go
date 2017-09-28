@@ -23,11 +23,7 @@ func (p pull) startReceiving(ep portal.Endpoint) {
 	rq := p.prtl.RecvChannel()
 	cq := p.prtl.CloseChannel()
 
-	for {
-		if msg = ep.Announce(); msg == nil {
-			return
-		}
-
+	for msg = ep.Announce(); msg != nil; ep.Announce() {
 		select {
 		case rq <- msg:
 		case <-cq:
