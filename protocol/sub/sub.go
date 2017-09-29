@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/lthibault/portal"
+	proto "github.com/lthibault/portal/protocol/core"
 	"github.com/pkg/errors"
 )
 
