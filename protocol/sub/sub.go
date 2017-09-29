@@ -108,14 +108,14 @@ func (s sub) startReceiving(ep portal.Endpoint) {
 	}
 }
 
-func (sub) Number() uint16     { return portal.ProtoSub }
-func (sub) PeerNumber() uint16 { return portal.ProtoPub }
+func (sub) Number() uint16     { return proto.Sub }
+func (sub) PeerNumber() uint16 { return proto.Pub }
 func (sub) Name() string       { return "sub" }
 func (sub) PeerName() string   { return "pub" }
 
 func (sub) RemoveEndpoint(portal.Endpoint) {}
 func (s sub) AddEndpoint(ep portal.Endpoint) {
-	portal.MustBeCompatible(s, ep.Signature())
+	proto.MustBeCompatible(s, ep.Signature())
 	go s.startReceiving(ep)
 }
 

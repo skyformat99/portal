@@ -1,12 +1,17 @@
 package proto
 
-/*
-	Core components for protocol developers.
-*/
-
-import "github.com/lthibault/portal"
-
 const (
-	// REQEndpt identifies the REQ endpoint that originated a message
-	REQEndpt portal.HeaderKey = iota
+	Pair = iota
+	Push
+	Pull
+	Req
+	Rep
+	Pub
+	Sub
+	Surv
+	Resp
+	Bus
+	Star
+	Brok
+	Deal
 )

@@ -53,7 +53,7 @@ func (p pub) startSending() {
 }
 
 func (p pub) AddEndpoint(ep portal.Endpoint) {
-	portal.MustBeCompatible(p, ep.Signature())
+	proto.MustBeCompatible(p, ep.Signature())
 
 	pe := proto.NewPeerEP(ep)
 	p.n.SetPeer(ep.ID(), pe)
@@ -61,8 +61,8 @@ func (p pub) AddEndpoint(ep portal.Endpoint) {
 
 func (p pub) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
 
-func (pub) Number() uint16     { return portal.ProtoPub }
-func (pub) PeerNumber() uint16 { return portal.ProtoSub }
+func (pub) Number() uint16     { return proto.Pub }
+func (pub) PeerNumber() uint16 { return proto.Sub }
 func (pub) Name() string       { return "pub" }
 func (pub) PeerName() string   { return "sub" }
 

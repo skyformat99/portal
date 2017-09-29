@@ -43,13 +43,13 @@ func (p push) startSending(pe proto.PeerEndpoint) {
 	}
 }
 
-func (push) Number() uint16     { return portal.ProtoPush }
+func (push) Number() uint16     { return proto.Push }
 func (push) Name() string       { return "push" }
-func (push) PeerNumber() uint16 { return portal.ProtoPull }
+func (push) PeerNumber() uint16 { return proto.Pull }
 func (push) PeerName() string   { return "pull" }
 
 func (p push) AddEndpoint(ep portal.Endpoint) {
-	portal.MustBeCompatible(p, ep.Signature())
+	proto.MustBeCompatible(p, ep.Signature())
 	close(p.prtl.RecvChannel()) // NOTE : if mysterious error, maybe it's this?
 
 	pe := proto.NewPeerEP(ep)

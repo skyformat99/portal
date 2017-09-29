@@ -21,7 +21,7 @@ type pair struct {
 func (p *pair) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
 
 func (p *pair) AddEndpoint(ep portal.Endpoint) {
-	portal.MustBeCompatible(p, ep.Signature())
+	proto.MustBeCompatible(p, ep.Signature())
 
 	p.Lock()
 	defer p.Unlock()
@@ -46,9 +46,9 @@ func (p *pair) RemoveEndpoint(ep portal.Endpoint) {
 	}
 }
 
-func (*pair) Number() uint16     { return portal.ProtoPair }
+func (*pair) Number() uint16     { return proto.Pair }
 func (*pair) Name() string       { return "pair" }
-func (*pair) PeerNumber() uint16 { return portal.ProtoPair }
+func (*pair) PeerNumber() uint16 { return proto.Pair }
 func (*pair) PeerName() string   { return "pair" }
 
 func (p *pair) startReceiving() {
