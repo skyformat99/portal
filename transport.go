@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/SentimensRG/ctx"
 	"github.com/pkg/errors"
 )
 
@@ -75,13 +76,12 @@ func (t *trans) GetListener(c context.Context) (listener, error) {
 	}
 
 	t.lookup[bc.Addr()] = bc
-	go func() {
-		<-bc.Done()
+	ctx.Defer(bc, func() {
 		bc.Close()
 		t.Lock()
 		delete(t.lookup, bc.Addr())
 		t.Unlock()
-	}()
+	})
 
 	return bc, nil
 }

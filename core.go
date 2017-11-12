@@ -82,10 +82,7 @@ func (p *portal) Bind(addr string) (err error) {
 	}
 
 	p.ready = true
-	go func() {
-		<-p.c.Done()
-		p.ready = false
-	}()
+	ctx.Defer(p.c, func() { p.ready = false })
 
 	return
 }
