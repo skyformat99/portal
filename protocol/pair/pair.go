@@ -13,11 +13,6 @@ type pair struct {
 	peer proto.PeerEndpoint
 }
 
-// type pairEP struct {
-// 	ep     portal.Endpoint
-// 	chHalt chan struct{}
-// }
-
 func (p *pair) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
 
 func (p *pair) AddEndpoint(ep portal.Endpoint) {
