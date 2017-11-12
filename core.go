@@ -3,6 +3,7 @@ package portal
 import (
 	"context"
 
+	"github.com/SentimensRG/ctx"
 	"github.com/SentimensRG/ctx/sigctx"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
@@ -57,7 +58,7 @@ func (p *portal) Connect(addr string) (err error) {
 	}
 
 	c.Connect(p)
-	go p.gc(c.Done(), c.GetEndpoint())
+	p.gc(c, c.GetEndpoint())
 
 	p.ready = true
 	go func() {
@@ -75,7 +76,7 @@ func (p *portal) Bind(addr string) (err error) {
 	} else {
 		go func() {
 			for ep := range l.Listen() {
-				go p.gc(l.Done(), ep)
+				p.gc(l, ep)
 			}
 		}()
 	}
@@ -139,14 +140,10 @@ func (p portal) SendChannel() <-chan *Message  { return p.chSend }
 func (p portal) RecvChannel() chan<- *Message  { return p.chRecv }
 func (p portal) CloseChannel() <-chan struct{} { return p.c.Done() }
 
-// gc manages the lifecycle of an endpoint
-func (p portal) gc(chRemoteDone <-chan struct{}, ep Endpoint) {
+// gc manages the lifecycle of an endpoint in the background
+func (p portal) gc(remote ctx.Doner, ep Endpoint) {
 	p.proto.AddEndpoint(ep)
-
-	select {
-	case <-p.c.Done():
-	case <-chRemoteDone:
-	}
-
-	p.proto.RemoveEndpoint(ep)
+	ctx.Defer(ctx.Lift(ctx.Link(p.c, remote)), func() {
+		p.proto.RemoveEndpoint(ep)
+	})
 }
