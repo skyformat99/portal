@@ -39,10 +39,10 @@ type (
 type bindCtx struct{ context.Context }
 
 func newBindCtx(addr string, p portal) *bindCtx {
-	ctx := context.WithValue(p.ctx, keyBindAddr, addr)
-	ctx = context.WithValue(ctx, keySvrEndpt, p)
-	ctx = context.WithValue(ctx, keyListenChan, make(chan Endpoint))
-	return &bindCtx{Context: ctx}
+	c := context.WithValue(p.c, keyBindAddr, addr)
+	c = context.WithValue(c, keySvrEndpt, p)
+	c = context.WithValue(c, keyListenChan, make(chan Endpoint))
+	return &bindCtx{Context: c}
 }
 
 func (bc bindCtx) Addr() string            { return bc.Value(keyBindAddr).(string) }
@@ -64,11 +64,11 @@ func (t *trans) GetConnector(a string) (c connector, ok bool) {
 	return
 }
 
-func (t *trans) GetListener(ctx context.Context) (listener, error) {
+func (t *trans) GetListener(c context.Context) (listener, error) {
 	t.Lock()
 	defer t.Unlock()
 
-	bc := &bindCtx{Context: ctx}
+	bc := &bindCtx{Context: c}
 
 	if _, exists := t.lookup[bc.Addr()]; exists {
 		return nil, errors.Errorf("transport exists at %s", bc.Addr())

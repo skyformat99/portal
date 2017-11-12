@@ -14,14 +14,14 @@ type Cfg struct {
 }
 
 // MakePortal is for protocol implementations
-func MakePortal(ctx context.Context, p Protocol) Portal {
+func MakePortal(c context.Context, p Protocol) Portal {
 	var cancel context.CancelFunc
-	if ctx == nil {
-		ctx = sigctx.New()
+	if c == nil {
+		c = sigctx.New()
 	}
 
-	ctx, cancel = context.WithCancel(ctx)
-	return newPortal(ctx, cancel, p)
+	c, cancel = context.WithCancel(c)
+	return newPortal(c, cancel, p)
 }
 
 type portal struct {
@@ -29,19 +29,19 @@ type portal struct {
 	proto Protocol
 	ready bool
 
-	ctx    context.Context
+	c      context.Context
 	cancel context.CancelFunc
 
 	chSend chan *Message
 	chRecv chan *Message
 }
 
-func newPortal(ctx context.Context, c context.CancelFunc, p Protocol) (prtl *portal) {
+func newPortal(c context.Context, cancel context.CancelFunc, p Protocol) (prtl *portal) {
 	prtl = &portal{
 		id:     uuid.NewV4(),
 		proto:  p,
-		ctx:    ctx,
-		cancel: c,
+		c:      c,
+		cancel: cancel,
 		chSend: make(chan *Message),
 		chRecv: make(chan *Message),
 	}
@@ -61,7 +61,7 @@ func (p *portal) Connect(addr string) (err error) {
 
 	p.ready = true
 	go func() {
-		<-p.ctx.Done()
+		<-p.c.Done()
 		p.ready = false
 	}()
 
@@ -82,7 +82,7 @@ func (p *portal) Bind(addr string) (err error) {
 
 	p.ready = true
 	go func() {
-		<-p.ctx.Done()
+		<-p.c.Done()
 		p.ready = false
 	}()
 
@@ -104,9 +104,11 @@ func (p portal) Recv() (v interface{}) {
 		panic(errors.New("recv from disconnected portal"))
 	}
 
-	msg := p.RecvMsg()
-	v = msg.Value
-	msg.Free()
+	if msg := p.RecvMsg(); msg != nil {
+		v = msg.Value
+		msg.Free()
+	}
+
 	return
 }
 
@@ -114,14 +116,14 @@ func (p portal) Close() { p.cancel() }
 func (p portal) SendMsg(msg *Message) {
 	select {
 	case p.chSend <- msg:
-	case <-p.ctx.Done():
+	case <-p.c.Done():
 	}
 
 }
 func (p portal) RecvMsg() (msg *Message) {
 	select {
 	case msg = <-p.chRecv:
-	case <-p.ctx.Done():
+	case <-p.c.Done():
 	}
 	return
 }
@@ -135,14 +137,14 @@ func (p portal) Signature() ProtocolSignature { return p.proto }
 // Implement ProtocolSocket
 func (p portal) SendChannel() <-chan *Message  { return p.chSend }
 func (p portal) RecvChannel() chan<- *Message  { return p.chRecv }
-func (p portal) CloseChannel() <-chan struct{} { return p.ctx.Done() }
+func (p portal) CloseChannel() <-chan struct{} { return p.c.Done() }
 
 // gc manages the lifecycle of an endpoint
 func (p portal) gc(chRemoteDone <-chan struct{}, ep Endpoint) {
 	p.proto.AddEndpoint(ep)
 
 	select {
-	case <-p.ctx.Done():
+	case <-p.c.Done():
 	case <-chRemoteDone:
 	}
 
