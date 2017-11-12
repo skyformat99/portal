@@ -3,7 +3,7 @@ package portal
 import (
 	"context"
 
-	"github.com/SentimensRG/sigctx"
+	"github.com/SentimensRG/ctx/sigctx"
 	"github.com/pkg/errors"
 	"github.com/satori/go.uuid"
 )
@@ -110,9 +110,21 @@ func (p portal) Recv() (v interface{}) {
 	return
 }
 
-func (p portal) Close()               { p.cancel() }
-func (p portal) SendMsg(msg *Message) { p.chSend <- msg }
-func (p portal) RecvMsg() *Message    { return <-p.chRecv }
+func (p portal) Close() { p.cancel() }
+func (p portal) SendMsg(msg *Message) {
+	select {
+	case p.chSend <- msg:
+	case <-p.ctx.Done():
+	}
+
+}
+func (p portal) RecvMsg() (msg *Message) {
+	select {
+	case msg = <-p.chRecv:
+	case <-p.ctx.Done():
+	}
+	return
+}
 
 // Implement Endpoint
 func (p portal) ID() uuid.UUID                { return p.id }
