@@ -2,6 +2,7 @@ package portal
 
 import (
 	"context"
+	"sync"
 
 	"github.com/SentimensRG/ctx"
 	"github.com/SentimensRG/ctx/sigctx"
@@ -11,38 +12,43 @@ import (
 
 // Cfg is a base configuration struct
 type Cfg struct {
-	Ctx context.Context
+	Async bool
+	Ctx   context.Context
 }
 
 // MakePortal is for protocol implementations
-func MakePortal(c context.Context, p Protocol) Portal {
+func MakePortal(cfg Cfg, p Protocol) Portal {
 	var cancel context.CancelFunc
-	if c == nil {
+	var c context.Context
+	if cfg.Ctx == nil {
 		c = sigctx.New()
 	}
 
 	c, cancel = context.WithCancel(c)
-	return newPortal(c, cancel, p)
+	return newPortal(c, cancel, p, cfg.Async)
 }
 
 type portal struct {
-	id    uuid.UUID
-	proto Protocol
-	ready bool
+	id           uuid.UUID
+	proto        Protocol
+	async, ready bool
 
 	c      context.Context
 	cancel context.CancelFunc
 
+	wg     *sync.WaitGroup
 	chSend chan *Message
 	chRecv chan *Message
 }
 
-func newPortal(c context.Context, cancel context.CancelFunc, p Protocol) (prtl *portal) {
+func newPortal(c context.Context, cancel context.CancelFunc, p Protocol, async bool) (prtl *portal) {
 	prtl = &portal{
 		id:     uuid.NewV4(),
+		async:  async,
 		proto:  p,
 		c:      c,
 		cancel: cancel,
+		wg:     &sync.WaitGroup{},
 		chSend: make(chan *Message),
 		chRecv: make(chan *Message),
 	}
@@ -94,7 +100,16 @@ func (p portal) Send(v interface{}) {
 
 	msg := NewMsg()
 	msg.Value = v
+	if !p.async {
+		p.wg.Add(1)
+		go func() {
+			msg.WaitDeliver()
+			p.wg.Done()
+		}()
+	}
+
 	p.SendMsg(msg)
+	p.wg.Wait()
 }
 
 func (p portal) Recv() (v interface{}) {
@@ -116,8 +131,8 @@ func (p portal) SendMsg(msg *Message) {
 	case p.chSend <- msg:
 	case <-p.c.Done():
 	}
-
 }
+
 func (p portal) RecvMsg() (msg *Message) {
 	select {
 	case msg = <-p.chRecv:

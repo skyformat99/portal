@@ -95,5 +95,5 @@ func (p *pair) startSending() {
 
 // New allocates a Portal using the PAIR protocol
 func New(cfg portal.Cfg) portal.Portal {
-	return portal.MakePortal(cfg.Ctx, &pair{})
+	return portal.MakePortal(cfg, &pair{})
 }

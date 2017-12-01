@@ -137,7 +137,7 @@ func New(cfg portal.Cfg) Portal {
 		portal.ReadOnly
 		*sub
 	}{
-		ReadOnly: portal.MakePortal(cfg.Ctx, s),
+		ReadOnly: portal.MakePortal(cfg, s),
 		sub:      s,
 	}
 }

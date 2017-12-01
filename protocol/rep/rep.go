@@ -83,5 +83,5 @@ func (r *rep) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
 
 // New allocates a new REP portal
 func New(cfg portal.Cfg) portal.Portal {
-	return portal.MakePortal(cfg.Ctx, &rep{})
+	return portal.MakePortal(cfg, &rep{})
 }

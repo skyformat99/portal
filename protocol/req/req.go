@@ -82,5 +82,5 @@ func (r req) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
 
 // New allocates a Portal using the REQ protocol
 func New(cfg portal.Cfg) portal.Portal {
-	return portal.MakePortal(cfg.Ctx, &req{})
+	return portal.MakePortal(cfg, &req{})
 }

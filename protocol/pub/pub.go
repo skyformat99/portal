@@ -68,5 +68,5 @@ func (pub) PeerName() string   { return "sub" }
 
 // New allocates a portal using the PUB protocol
 func New(cfg portal.Cfg) portal.WriteOnly {
-	return proto.WriteGuard(portal.MakePortal(cfg.Ctx, &pub{}))
+	return proto.WriteGuard(portal.MakePortal(cfg, &pub{}))
 }

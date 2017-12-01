@@ -45,5 +45,5 @@ func (p pull) AddEndpoint(ep portal.Endpoint) {
 
 // New allocates a Portal using the PULL protocol
 func New(cfg portal.Cfg) portal.ReadOnly {
-	return proto.ReadGuard(portal.MakePortal(cfg.Ctx, &pull{}))
+	return proto.ReadGuard(portal.MakePortal(cfg, &pull{}))
 }

@@ -92,5 +92,5 @@ func (bus) PeerName() string   { return "bus" }
 
 // New allocates a portal using the BUS protocol
 func New(cfg portal.Cfg) portal.Portal {
-	return portal.MakePortal(cfg.Ctx, &bus{})
+	return portal.MakePortal(cfg, &bus{})
 }
