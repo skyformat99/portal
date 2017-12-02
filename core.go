@@ -1,7 +1,6 @@
 package portal
 
 import (
-	"context"
 	"sync"
 
 	"github.com/SentimensRG/ctx"
@@ -12,20 +11,20 @@ import (
 
 // Cfg is a base configuration struct
 type Cfg struct {
+	ctx.Doner
 	Async bool
-	Ctx   context.Context
 }
 
 // MakePortal is for protocol implementations
 func MakePortal(cfg Cfg, p Protocol) Portal {
-	var cancel context.CancelFunc
-	var c context.Context
-	if cfg.Ctx == nil {
-		c = sigctx.New()
+	var cancel func()
+	var d ctx.Doner
+	if cfg.Doner == nil {
+		d = sigctx.New()
 	}
 
-	c, cancel = context.WithCancel(c)
-	return newPortal(c, cancel, p, cfg.Async)
+	d, cancel = ctx.WithCancel(d)
+	return newPortal(d, cancel, p, cfg.Async)
 }
 
 type portal struct {
@@ -33,20 +32,20 @@ type portal struct {
 	proto        Protocol
 	async, ready bool
 
-	c      context.Context
-	cancel context.CancelFunc
+	d      ctx.Doner
+	cancel func()
 
 	wg     *sync.WaitGroup
 	chSend chan *Message
 	chRecv chan *Message
 }
 
-func newPortal(c context.Context, cancel context.CancelFunc, p Protocol, async bool) (prtl *portal) {
+func newPortal(d ctx.Doner, cancel func(), p Protocol, async bool) (prtl *portal) {
 	prtl = &portal{
 		id:     uuid.NewV4(),
 		async:  async,
 		proto:  p,
-		c:      c,
+		d:      d,
 		cancel: cancel,
 		wg:     &sync.WaitGroup{},
 		chSend: make(chan *Message),
@@ -68,7 +67,7 @@ func (p *portal) Connect(addr string) (err error) {
 
 	p.ready = true
 	go func() {
-		<-p.c.Done()
+		<-p.d.Done()
 		p.ready = false
 	}()
 
@@ -77,7 +76,7 @@ func (p *portal) Connect(addr string) (err error) {
 
 func (p *portal) Bind(addr string) (err error) {
 	var l listener
-	if l, err = transport.GetListener(newBindCtx(addr, *p)); err != nil {
+	if l, err = transport.GetListener(newBinding(addr, *p)); err != nil {
 		err = errors.Wrap(err, "portal bind error")
 	} else {
 		go func() {
@@ -88,7 +87,7 @@ func (p *portal) Bind(addr string) (err error) {
 	}
 
 	p.ready = true
-	ctx.Defer(p.c, func() { p.ready = false })
+	ctx.Defer(p.d, func() { p.ready = false })
 
 	return
 }
@@ -129,14 +128,14 @@ func (p portal) Close() { p.cancel() }
 func (p portal) SendMsg(msg *Message) {
 	select {
 	case p.chSend <- msg:
-	case <-p.c.Done():
+	case <-p.d.Done():
 	}
 }
 
 func (p portal) RecvMsg() (msg *Message) {
 	select {
 	case msg = <-p.chRecv:
-	case <-p.c.Done():
+	case <-p.d.Done():
 	}
 	return
 }
@@ -150,12 +149,12 @@ func (p portal) Signature() ProtocolSignature { return p.proto }
 // Implement ProtocolSocket
 func (p portal) SendChannel() <-chan *Message  { return p.chSend }
 func (p portal) RecvChannel() chan<- *Message  { return p.chRecv }
-func (p portal) CloseChannel() <-chan struct{} { return p.c.Done() }
+func (p portal) CloseChannel() <-chan struct{} { return p.d.Done() }
 
 // gc manages the lifecycle of an endpoint in the background
 func (p portal) gc(remote ctx.Doner, ep Endpoint) {
 	p.proto.AddEndpoint(ep)
-	ctx.Defer(ctx.Lift(ctx.Link(p.c, remote)), func() {
+	ctx.Defer(ctx.Lift(ctx.Link(p.d, remote)), func() {
 		p.proto.RemoveEndpoint(ep)
 	})
 }

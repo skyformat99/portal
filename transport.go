@@ -1,22 +1,13 @@
 package portal
 
 import (
-	"context"
 	"sync"
 
 	"github.com/SentimensRG/ctx"
 	"github.com/pkg/errors"
 )
 
-type bindKey uint
-
-const (
-	keySvrEndpt bindKey = iota
-	keyListenChan
-	keyBindAddr
-)
-
-var transport = trans{lookup: make(map[string]*bindCtx)}
+var transport = trans{lookup: make(map[string]*binding)}
 
 type (
 	transporter interface {
@@ -26,36 +17,37 @@ type (
 	}
 
 	connector interface {
-		context.Context
+		ctx.Doner
 		GetEndpoint() Endpoint
 		Connect(Endpoint)
 	}
 
 	listener interface {
-		context.Context
+		ctx.Doner
 		Listen() <-chan Endpoint
 	}
 )
 
-type bindCtx struct{ context.Context }
-
-func newBindCtx(addr string, p portal) *bindCtx {
-	c := context.WithValue(p.c, keyBindAddr, addr)
-	c = context.WithValue(c, keySvrEndpt, p)
-	c = context.WithValue(c, keyListenChan, make(chan Endpoint))
-	return &bindCtx{Context: c}
+type binding struct {
+	ctx.Doner
+	addr  string
+	cxns  chan Endpoint // incomming connections
+	bound Endpoint
 }
 
-func (bc bindCtx) Addr() string            { return bc.Value(keyBindAddr).(string) }
-func (bc bindCtx) l() chan Endpoint        { return bc.Value(keyListenChan).(chan Endpoint) }
-func (bc bindCtx) GetEndpoint() Endpoint   { return bc.Value(keySvrEndpt).(Endpoint) }
-func (bc bindCtx) Connect(ep Endpoint)     { bc.l() <- ep }
-func (bc bindCtx) Listen() <-chan Endpoint { return bc.l() }
-func (bc bindCtx) Close()                  { close(bc.l()) }
+func newBinding(addr string, p portal) *binding {
+	return &binding{Doner: p.d, addr: addr, cxns: make(chan Endpoint), bound: p}
+}
+
+func (b binding) Addr() string            { return b.addr }
+func (b binding) GetEndpoint() Endpoint   { return b.bound }
+func (b binding) Connect(ep Endpoint)     { b.cxns <- ep }
+func (b binding) Listen() <-chan Endpoint { return b.cxns }
+func (b binding) Close()                  { close(b.cxns) }
 
 type trans struct {
 	sync.RWMutex
-	lookup map[string]*bindCtx
+	lookup map[string]*binding
 }
 
 func (t *trans) GetConnector(a string) (c connector, ok bool) {
@@ -65,23 +57,21 @@ func (t *trans) GetConnector(a string) (c connector, ok bool) {
 	return
 }
 
-func (t *trans) GetListener(c context.Context) (listener, error) {
+func (t *trans) GetListener(b *binding) (listener, error) {
 	t.Lock()
 	defer t.Unlock()
 
-	bc := &bindCtx{Context: c}
-
-	if _, exists := t.lookup[bc.Addr()]; exists {
-		return nil, errors.Errorf("transport exists at %s", bc.Addr())
+	if _, exists := t.lookup[b.Addr()]; exists {
+		return nil, errors.Errorf("transport exists at %s", b.Addr())
 	}
 
-	t.lookup[bc.Addr()] = bc
-	ctx.Defer(bc, func() {
-		bc.Close()
+	t.lookup[b.Addr()] = b
+	ctx.Defer(b, func() {
+		b.Close()
 		t.Lock()
-		delete(t.lookup, bc.Addr())
+		delete(t.lookup, b.Addr())
 		t.Unlock()
 	})
 
-	return bc, nil
+	return b, nil
 }
