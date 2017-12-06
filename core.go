@@ -22,8 +22,7 @@ func MakePortal(cfg Cfg, p Protocol) Portal {
 		d = sigctx.New()
 	}
 
-	d, cancel = ctx.WithCancel(d)
-	// return newPortal(d, cancel, p, cfg.Async)
+	cfg.Doner, cancel = ctx.WithCancel(d)
 	return newPortal(p, cfg, cancel)
 }
 
