@@ -5,17 +5,10 @@ import (
 )
 
 type recver interface {
-	// RecvMsg receives a complete message, including the message header,
-	// which is useful for protocols in raw mode.
-	RecvMsg() *Message
 	Recv() interface{}
 }
 
 type sender interface {
-	// SendMsg puts the message on the outbound send.  It works like Send,
-	// but allows the caller to supply message headers.  AGAIN, the Socket
-	// ASSUMES OWNERSHIP OF THE MESSAGE.
-	SendMsg(*Message)
 	Send(interface{})
 }
 
