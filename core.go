@@ -1,8 +1,6 @@
 package portal
 
 import (
-	"sync"
-
 	"github.com/SentimensRG/ctx"
 	"github.com/SentimensRG/ctx/sigctx"
 	"github.com/pkg/errors"
@@ -37,12 +35,16 @@ type portal struct {
 	d      ctx.Doner
 	cancel func()
 
-	wg     *sync.WaitGroup
+	txn    chan struct{}
 	chSend chan *Message
 	chRecv chan *Message
 }
 
 func newPortal(p Protocol, cfg Cfg, cancel func()) (prtl *portal) {
+	c := make(chan struct{})
+	if cfg.Async {
+		close(c)
+	}
 
 	prtl = &portal{
 		id:     uuid.NewV4(),
@@ -50,7 +52,7 @@ func newPortal(p Protocol, cfg Cfg, cancel func()) (prtl *portal) {
 		proto:  p,
 		d:      cfg.Doner,
 		cancel: cancel,
-		wg:     &sync.WaitGroup{},
+		txn:    c,
 		chSend: make(chan *Message, cfg.Size),
 		chRecv: make(chan *Message, cfg.Size),
 	}
@@ -79,7 +81,7 @@ func (p *portal) Connect(addr string) (err error) {
 
 func (p *portal) Bind(addr string) (err error) {
 	var l listener
-	if l, err = transport.GetListener(newBinding(addr, *p)); err != nil {
+	if l, err = transport.GetListener(newBinding(p.d, addr, p)); err != nil {
 		err = errors.Wrap(err, "portal bind error")
 	} else {
 		go func() {
@@ -95,7 +97,7 @@ func (p *portal) Bind(addr string) (err error) {
 	return
 }
 
-func (p portal) Send(v interface{}) {
+func (p *portal) Send(v interface{}) {
 	if !p.ready {
 		panic(errors.New("send to disconnected portal"))
 	}
@@ -103,18 +105,14 @@ func (p portal) Send(v interface{}) {
 	msg := NewMsg()
 	msg.Value = v
 	if !p.async {
-		p.wg.Add(1)
-		go func() {
-			msg.WaitDeliver()
-			p.wg.Done()
-		}()
+		go msg.Signal(p.txn)
 	}
 
 	p.SendMsg(msg)
-	p.wg.Wait()
+	<-p.txn // will be closed if portal is async
 }
 
-func (p portal) Recv() (v interface{}) {
+func (p *portal) Recv() (v interface{}) {
 	if !p.ready {
 		panic(errors.New("recv from disconnected portal"))
 	}
@@ -127,15 +125,15 @@ func (p portal) Recv() (v interface{}) {
 	return
 }
 
-func (p portal) Close() { p.cancel() }
-func (p portal) SendMsg(msg *Message) {
+func (p *portal) Close() { p.cancel() }
+func (p *portal) SendMsg(msg *Message) {
 	select {
 	case p.chSend <- msg:
 	case <-p.d.Done():
 	}
 }
 
-func (p portal) RecvMsg() (msg *Message) {
+func (p *portal) RecvMsg() (msg *Message) {
 	select {
 	case msg = <-p.chRecv:
 	case <-p.d.Done():
@@ -144,18 +142,18 @@ func (p portal) RecvMsg() (msg *Message) {
 }
 
 // Implement Endpoint
-func (p portal) ID() uuid.UUID                { return p.id }
-func (p portal) Notify(msg *Message)          { p.chRecv <- msg }
-func (p portal) Announce() *Message           { return <-p.chSend }
-func (p portal) Signature() ProtocolSignature { return p.proto }
+func (p *portal) ID() uuid.UUID                { return p.id }
+func (p *portal) Notify(msg *Message)          { p.chRecv <- msg }
+func (p *portal) Announce() *Message           { return <-p.chSend }
+func (p *portal) Signature() ProtocolSignature { return p.proto }
 
 // Implement ProtocolSocket
-func (p portal) SendChannel() <-chan *Message  { return p.chSend }
-func (p portal) RecvChannel() chan<- *Message  { return p.chRecv }
-func (p portal) CloseChannel() <-chan struct{} { return p.d.Done() }
+func (p *portal) SendChannel() <-chan *Message  { return p.chSend }
+func (p *portal) RecvChannel() chan<- *Message  { return p.chRecv }
+func (p *portal) CloseChannel() <-chan struct{} { return p.d.Done() }
 
 // gc manages the lifecycle of an endpoint in the background
-func (p portal) gc(remote ctx.Doner, ep Endpoint) {
+func (p *portal) gc(remote ctx.Doner, ep Endpoint) {
 	p.proto.AddEndpoint(ep)
 	ctx.Defer(ctx.Lift(ctx.Link(p.d, remote)), func() {
 		p.proto.RemoveEndpoint(ep)

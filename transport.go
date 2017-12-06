@@ -35,8 +35,8 @@ type binding struct {
 	bound Endpoint
 }
 
-func newBinding(addr string, p portal) *binding {
-	return &binding{Doner: p.d, addr: addr, cxns: make(chan Endpoint), bound: p}
+func newBinding(d ctx.Doner, addr string, e Endpoint) *binding {
+	return &binding{Doner: d, addr: addr, cxns: make(chan Endpoint), bound: e}
 }
 
 func (b binding) Addr() string            { return b.addr }

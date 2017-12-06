@@ -41,8 +41,8 @@ func (m *Message) Free() {
 // function -- it is intended for Protocol, Transport and internal use only.
 func (m *Message) Ref() { atomic.AddInt32(&m.refcnt, 1) }
 
-// WaitDeliver blocks until the message was delivered
-func (m *Message) WaitDeliver() { <-m.delivered }
+// Signal that a message was delivered
+func (m *Message) Signal(c chan<- struct{}) { c <- (<-m.delivered) }
 
 // NewMsg returns a message with a single refcount
 func NewMsg() *Message { return msgPool.Get() }
