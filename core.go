@@ -13,6 +13,7 @@ import (
 type Cfg struct {
 	ctx.Doner
 	Async bool
+	Size  int
 }
 
 // MakePortal is for protocol implementations
@@ -24,7 +25,8 @@ func MakePortal(cfg Cfg, p Protocol) Portal {
 	}
 
 	d, cancel = ctx.WithCancel(d)
-	return newPortal(d, cancel, p, cfg.Async)
+	// return newPortal(d, cancel, p, cfg.Async)
+	return newPortal(p, cfg, cancel)
 }
 
 type portal struct {
@@ -40,16 +42,17 @@ type portal struct {
 	chRecv chan *Message
 }
 
-func newPortal(d ctx.Doner, cancel func(), p Protocol, async bool) (prtl *portal) {
+func newPortal(p Protocol, cfg Cfg, cancel func()) (prtl *portal) {
+
 	prtl = &portal{
 		id:     uuid.NewV4(),
-		async:  async,
+		async:  cfg.Async,
 		proto:  p,
-		d:      d,
+		d:      cfg.Doner,
 		cancel: cancel,
 		wg:     &sync.WaitGroup{},
-		chSend: make(chan *Message),
-		chRecv: make(chan *Message),
+		chSend: make(chan *Message, cfg.Size),
+		chRecv: make(chan *Message, cfg.Size),
 	}
 
 	p.Init(prtl)
