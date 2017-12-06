@@ -73,12 +73,12 @@ func (s *subscription) Unsubscribe(t Topic) {
 }
 
 type sub struct {
-	prtl portal.ProtocolPortal
+	ptl  portal.ProtocolPortal
 	subs *subscription
 }
 
-func (s *sub) Init(prtl portal.ProtocolPortal) {
-	s.prtl = prtl
+func (s *sub) Init(ptl portal.ProtocolPortal) {
+	s.ptl = ptl
 	s.subs = &subscription{t: make([]Topic, 0)}
 }
 
@@ -93,8 +93,8 @@ func (s sub) startReceiving(ep portal.Endpoint) {
 		}
 	}()
 
-	rq := s.prtl.RecvChannel()
-	cq := s.prtl.CloseChannel()
+	rq := s.ptl.RecvChannel()
+	cq := s.ptl.CloseChannel()
 
 	for msg = ep.Announce(); msg != nil; ep.Announce() {
 		if s.subs.Match(msg.Value) {

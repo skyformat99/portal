@@ -11,12 +11,12 @@ const eqBufSize = 8
 
 type rep struct {
 	sync.Mutex
-	prtl portal.ProtocolPortal
-	n    proto.Neighborhood
+	ptl portal.ProtocolPortal
+	n   proto.Neighborhood
 }
 
-func (r *rep) Init(prtl portal.ProtocolPortal) {
-	r.prtl = prtl
+func (r *rep) Init(ptl portal.ProtocolPortal) {
+	r.ptl = ptl
 	r.n = proto.NewNeighborhood()
 }
 
@@ -32,9 +32,9 @@ func (r *rep) startServing(pe proto.PeerEndpoint) {
 		}
 	}()
 
-	cq := r.prtl.CloseChannel()
-	rq := r.prtl.RecvChannel()
-	sq := r.prtl.SendChannel()
+	cq := r.ptl.CloseChannel()
+	rq := r.ptl.RecvChannel()
+	sq := r.ptl.SendChannel()
 
 	for msg = pe.Announce(); msg != nil; msg = pe.Announce() {
 		r.Lock()
@@ -54,7 +54,7 @@ func (r *rep) startServing(pe proto.PeerEndpoint) {
 				continue
 			case msg = <-sq:
 				if msg == nil {
-					sq = r.prtl.SendChannel()
+					sq = r.ptl.SendChannel()
 					r.Unlock()
 				} else {
 					pe.Notify(msg)

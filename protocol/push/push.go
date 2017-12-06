@@ -6,12 +6,12 @@ import (
 )
 
 type push struct {
-	prtl portal.ProtocolPortal
-	n    proto.Neighborhood
+	ptl portal.ProtocolPortal
+	n   proto.Neighborhood
 }
 
-func (p *push) Init(prtl portal.ProtocolPortal) {
-	p.prtl = prtl
+func (p *push) Init(ptl portal.ProtocolPortal) {
+	p.ptl = ptl
 	p.n = proto.NewNeighborhood()
 }
 
@@ -24,8 +24,8 @@ func (p push) startSending(pe proto.PeerEndpoint) {
 		}
 	}()
 
-	sq := p.prtl.SendChannel()
-	cq := p.prtl.CloseChannel()
+	sq := p.ptl.SendChannel()
+	cq := p.ptl.CloseChannel()
 
 	for {
 		select {
@@ -35,7 +35,7 @@ func (p push) startSending(pe proto.PeerEndpoint) {
 			return
 		case msg = <-sq:
 			if msg == nil {
-				sq = p.prtl.SendChannel()
+				sq = p.ptl.SendChannel()
 			} else {
 				pe.Notify(msg)
 			}
@@ -50,7 +50,7 @@ func (push) PeerName() string   { return "pull" }
 
 func (p push) AddEndpoint(ep portal.Endpoint) {
 	proto.MustBeCompatible(p, ep.Signature())
-	close(p.prtl.RecvChannel()) // NOTE : if mysterious error, maybe it's this?
+	close(p.ptl.RecvChannel()) // NOTE : if mysterious error, maybe it's this?
 
 	pe := proto.NewPeerEP(ep)
 	p.n.SetPeer(ep.ID(), pe)

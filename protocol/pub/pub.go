@@ -8,19 +8,19 @@ import (
 )
 
 type pub struct {
-	prtl portal.ProtocolPortal
-	n    proto.Neighborhood
+	ptl portal.ProtocolPortal
+	n   proto.Neighborhood
 }
 
-func (p *pub) Init(prtl portal.ProtocolPortal) {
-	p.prtl = prtl
+func (p *pub) Init(ptl portal.ProtocolPortal) {
+	p.ptl = ptl
 	p.n = proto.NewNeighborhood()
 	go p.startSending()
 }
 
 func (p pub) startSending() {
-	cq := p.prtl.CloseChannel()
-	sq := p.prtl.SendChannel()
+	cq := p.ptl.CloseChannel()
+	sq := p.ptl.SendChannel()
 
 	var wg sync.WaitGroup
 
@@ -31,7 +31,7 @@ func (p pub) startSending() {
 			return
 		case msg = <-sq:
 			if msg == nil {
-				sq = p.prtl.SendChannel()
+				sq = p.ptl.SendChannel()
 			} else {
 				m, done := p.n.RMap()
 				wg.Add(len(m))

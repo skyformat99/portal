@@ -6,12 +6,12 @@ import (
 )
 
 type req struct {
-	prtl portal.ProtocolPortal
-	n    proto.Neighborhood
+	ptl portal.ProtocolPortal
+	n   proto.Neighborhood
 }
 
-func (r *req) Init(prtl portal.ProtocolPortal) {
-	r.prtl = prtl
+func (r *req) Init(ptl portal.ProtocolPortal) {
+	r.ptl = ptl
 	r.n = proto.NewNeighborhood()
 }
 
@@ -21,8 +21,8 @@ func (r req) startSending(pe proto.PeerEndpoint) {
 	// added, we can reasonably safely cache the channels -- they won't
 	// be changing after this point.
 
-	sq := r.prtl.SendChannel()
-	cq := r.prtl.CloseChannel()
+	sq := r.ptl.SendChannel()
+	cq := r.ptl.CloseChannel()
 
 	var msg *portal.Message
 	for {
@@ -50,8 +50,8 @@ func (r req) startReceiving(ep portal.Endpoint) {
 		}
 	}()
 
-	rq := r.prtl.RecvChannel()
-	cq := r.prtl.CloseChannel()
+	rq := r.ptl.RecvChannel()
+	cq := r.ptl.CloseChannel()
 
 	for msg = ep.Announce(); msg != nil; msg = ep.Announce() {
 		select {

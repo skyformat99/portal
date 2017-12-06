@@ -8,19 +8,19 @@ import (
 )
 
 type bus struct {
-	prtl portal.ProtocolPortal
-	n    proto.Neighborhood
+	ptl portal.ProtocolPortal
+	n   proto.Neighborhood
 }
 
-func (b *bus) Init(prtl portal.ProtocolPortal) {
-	b.prtl = prtl
+func (b *bus) Init(ptl portal.ProtocolPortal) {
+	b.ptl = ptl
 	b.n = proto.NewNeighborhood()
 	go b.startSending()
 }
 
 func (b bus) startSending() {
-	sq := b.prtl.SendChannel()
-	cq := b.prtl.CloseChannel()
+	sq := b.ptl.SendChannel()
+	cq := b.ptl.CloseChannel()
 
 	var wg sync.WaitGroup
 	var msg *portal.Message
@@ -30,7 +30,7 @@ func (b bus) startSending() {
 			return
 		case msg = <-sq:
 			if msg == nil {
-				sq = b.prtl.SendChannel()
+				sq = b.ptl.SendChannel()
 				continue
 			}
 
@@ -64,8 +64,8 @@ func (b bus) startReceiving(pe proto.PeerEndpoint) {
 		}
 	}()
 
-	rq := b.prtl.RecvChannel()
-	cq := b.prtl.CloseChannel()
+	rq := b.ptl.RecvChannel()
+	cq := b.ptl.CloseChannel()
 
 	for msg = pe.Announce(); msg != nil; pe.Announce() {
 		select {

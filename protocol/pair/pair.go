@@ -9,11 +9,11 @@ import (
 
 type pair struct {
 	sync.Mutex
-	prtl portal.ProtocolPortal
+	ptl  portal.ProtocolPortal
 	peer proto.PeerEndpoint
 }
 
-func (p *pair) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
+func (p *pair) Init(ptl portal.ProtocolPortal) { p.ptl = ptl }
 
 func (p *pair) AddEndpoint(ep portal.Endpoint) {
 	proto.MustBeCompatible(p, ep.Signature())
@@ -57,8 +57,8 @@ func (p *pair) startReceiving() {
 		}
 	}()
 
-	rq := p.prtl.RecvChannel()
-	cq := p.prtl.CloseChannel()
+	rq := p.ptl.RecvChannel()
+	cq := p.ptl.CloseChannel()
 
 	for msg = p.peer.Announce(); msg != nil; p.peer.Announce() {
 		select {
@@ -70,8 +70,8 @@ func (p *pair) startReceiving() {
 }
 
 func (p *pair) startSending() {
-	sq := p.prtl.SendChannel()
-	cq := p.prtl.CloseChannel()
+	sq := p.ptl.SendChannel()
+	cq := p.ptl.CloseChannel()
 	pcq := p.peer.Done()
 
 	// This is pretty easy because we have only one peer at a time.
@@ -85,7 +85,7 @@ func (p *pair) startSending() {
 			return
 		case msg = <-sq:
 			if msg == nil {
-				sq = p.prtl.SendChannel()
+				sq = p.ptl.SendChannel()
 			} else {
 				p.peer.Notify(msg) // may panic
 			}

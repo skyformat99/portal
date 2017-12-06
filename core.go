@@ -40,25 +40,26 @@ type portal struct {
 	chRecv chan *Message
 }
 
-func newPortal(p Protocol, cfg Cfg, cancel func()) (prtl *portal) {
+func newPortal(p Protocol, cfg Cfg, cancel func()) *portal {
 	c := make(chan struct{})
 	if cfg.Async {
 		close(c)
 	}
 
-	prtl = &portal{
-		id:     uuid.NewV4(),
-		async:  cfg.Async,
-		proto:  p,
-		d:      cfg.Doner,
-		cancel: cancel,
-		txn:    c,
-		chSend: make(chan *Message, cfg.Size),
-		chRecv: make(chan *Message, cfg.Size),
-	}
+	var ptl = new(portal)
 
-	p.Init(prtl)
-	return
+	ptl.id = uuid.NewV4()
+	ptl.async = cfg.Async
+	ptl.proto = p
+	ptl.d = cfg.Doner
+	ptl.cancel = cancel
+	ptl.txn = c
+	ptl.chSend = make(chan *Message, cfg.Size)
+	ptl.chRecv = make(chan *Message, cfg.Size)
+
+	p.Init(ptl)
+
+	return ptl
 }
 
 func (p *portal) Connect(addr string) (err error) {

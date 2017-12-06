@@ -5,9 +5,9 @@ import (
 	"github.com/lthibault/portal/protocol/core"
 )
 
-type pull struct{ prtl portal.ProtocolPortal }
+type pull struct{ ptl portal.ProtocolPortal }
 
-func (p *pull) Init(prtl portal.ProtocolPortal) { p.prtl = prtl }
+func (p *pull) Init(ptl portal.ProtocolPortal) { p.ptl = ptl }
 
 func (p pull) startReceiving(ep portal.Endpoint) {
 	var msg *portal.Message
@@ -20,8 +20,8 @@ func (p pull) startReceiving(ep portal.Endpoint) {
 		}
 	}()
 
-	rq := p.prtl.RecvChannel()
-	cq := p.prtl.CloseChannel()
+	rq := p.ptl.RecvChannel()
+	cq := p.ptl.CloseChannel()
 
 	for msg = ep.Announce(); msg != nil; ep.Announce() {
 		select {
