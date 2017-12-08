@@ -4,24 +4,16 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-type recver interface {
-	Recv() interface{}
-}
-
-type sender interface {
-	Send(interface{})
-}
-
 // ReadOnly is the portal equivalent of <-chan
 type ReadOnly interface {
 	transporter
-	recver
+	Recv() interface{}
 }
 
 // WriteOnly is the portal equivalent of chan<-
 type WriteOnly interface {
 	transporter
-	sender
+	Send(interface{})
 }
 
 // Portal is the main access handle applications use to access the protocol
@@ -30,8 +22,8 @@ type WriteOnly interface {
 // at a time.
 type Portal interface {
 	transporter
-	sender
-	recver
+	Send(interface{})
+	Recv() interface{}
 }
 
 // Endpoint is used by the Protocol implementation to access the underlying
