@@ -2,7 +2,7 @@ package pull
 
 import (
 	"github.com/lthibault/portal"
-	"github.com/lthibault/portal/protocol/core"
+	"github.com/lthibault/portal/protocol"
 )
 
 type pull struct{ ptl portal.ProtocolPortal }

@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/lthibault/portal"
-	"github.com/lthibault/portal/protocol/core"
+	"github.com/lthibault/portal/protocol"
 )
 
 type pair struct {

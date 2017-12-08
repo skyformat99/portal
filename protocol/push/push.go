@@ -2,7 +2,7 @@ package push
 
 import (
 	"github.com/lthibault/portal"
-	"github.com/lthibault/portal/protocol/core"
+	"github.com/lthibault/portal/protocol"
 )
 
 type push struct {
