@@ -61,5 +61,5 @@ func (p push) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
 
 // New allocates a WriteOnly Portal using the PUSH protocol
 func New(cfg portal.Cfg) portal.WriteOnly {
-	return proto.WriteGuard(portal.MakePortal(cfg, &push{}))
+	return struct{ portal.WriteOnly }{portal.MakePortal(cfg, &push{})} // write guard
 }
