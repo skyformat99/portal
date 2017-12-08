@@ -3,14 +3,15 @@ package proto
 import (
 	"sync"
 
+	"github.com/SentimensRG/ctx"
 	"github.com/lthibault/portal"
 	"github.com/satori/go.uuid"
 )
 
 // PeerEndpoint is the endpoint to a remote peer.
 type PeerEndpoint interface {
+	ctx.Doner
 	portal.Endpoint
-	Done() <-chan struct{}
 }
 
 type peerEP struct {
@@ -36,6 +37,7 @@ type Neighborhood interface {
 	DropPeer(uuid.UUID)
 }
 
+// neighborhood stores connected peer endpoints
 type neighborhood struct {
 	sync.RWMutex
 	epts map[uuid.UUID]PeerEndpoint
