@@ -4,7 +4,25 @@ Scalable patterns for concurrent software
 
 [![Godoc Reference](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://godoc.org/github.com/lthibault/portal)
 
+- [Portal](#portal)
+    - [Overview](#overview)
+    - [Thinking with portals](#thinking-with-portals)
+        - [Libraries, not frameworks](#libraries-not-frameworks)
+        - [Principle of least surprise](#principle-of-least-surprise)
+        - [Socket-like](#socket-like)
+        - [Channel-like](#channel-like)
+    - [Bare-bones example](#bare-bones-example)
+    - [Patterns](#patterns)
+        - [Type Guards](#type-guards)
+        - [Supervision Trees](#supervision-trees)
+    - [Authors](#authors)
+    - [License](#license)
+    - [Acknowledgments](#acknowledgments)
+    - [Request for Comments](#request-for-comments)
+
+
 ## Overview
+
 
 Portal is a lightweight library that provides concurrent communication patterns.  It's primary goals are to:
 
@@ -14,50 +32,66 @@ Portal is a lightweight library that provides concurrent communication patterns.
 
 While Go provides concurrency primitives as part of the core language, it's easy to spend more time managing concurrency than writing the application logic.  Just as one avoids writing HTTP servers from raw sockets, one would do well to avoid writing concurrent software from raw goroutines, channels and mutices.
 
-The solution is to use `Portal`s.
+The solution is to use portals.
 
-A portal is a channel analog that implements in-process messaging patterns such as *Request-Reply*, *Publish-Subscribe*, *Surveyor-Respondent*, *Pair*, *Bus*, *Push-Pull*, etc.  Portals are always thread-safe and syncrhonous by default, though they can be configured as async (buffered) portals as well.
+Portals are channels that implement in-process messaging patterns, called _protocols_.
+Portals allow safe communication across goroutines, and easy management of concurrent data-flow.
+Portal provides basic protocols, which can be combined to form more advanced topologies:
 
-### a library, not a framework
+1. **Pair:**  One-to-one, bidirectional communication
+1. **Bus:**  Many-to-many (broadcast) communication
+1. **Request / Reply:**  "I ask, you answer".  Process requests & return a response
+1. **Publish / Subscribe:**  One-to-many distribution to interested subscribers
+1. **Push / Pull:**  Pipeline pattern (unidirectional data flow)
+1. **Surveyor / Respondent:**  Query multiple components, each of which can reply
 
-Portal doesn't force you to think about your program in any particular way.
-Instead, it provides you with building blocks that help manage concurrency while leaving the architectural design up to you.  This approach is considered idiomatic in Go, and is most famously embodied in `net/http` to great effect.
+These protocols behave similarly to their [nanomsg](http://nanomsg.org/gettingstarted/index.html) counterparts.  (_N.B._:  use nanomsg if you need portal-like behavior over the network.)
 
-### simple by default, fast on demand
-
-Portal adopts the principle of least surprise.  When in doubt, Portal tries to be consistent with Go's channel API.  For example:
-
-1. `Send` to a closed `Portal` panics
-1. `Recv` from a closed `Portal` returns `nil`
-1. A `Portal` is synchronous (unbuffered) by default
-
-Portals are configured via the `portal.Cfg` struct.
-
-### Portal semantics, buffering & concurrency
-
-Portals are a bit like sockets in that they communicate by `Bind`ing and `Connect`ing to an address.  Some protocols define one-to-many or many-to-many patterns of messaging, which presents a few subtleties relative to `chan`'s behavior.
-
-First and foremost, it **all** receiving portals **MUST** call `Recv` before any receiver can receive the next item.  This head-of-line blocking is necessary to ensure that messages are never dropped from a Portal topology.
-
-`Send` operations on synchronous portals will block until _all_ connected Portals have called `Recv`.  As such, all `Recv` calls will unblock at the same time, ensuring that all receivers are in lock-step.  `Send` operations on asynchronous portals will not block unless the `Portal` is at maximum capacity.  Likewise, `Recv` calls will immediately return the first item in the buffer.
-
-## Getting Started
-
-This section is divided into three parts:
-
-1. Installation:  get you a copy of Portal on your local machine
-1. Bare-bones example:  get introduced to Portal's primitives & work-flow
-1. Patterns:  idiomatic patterns that help you go from "I know the syntax" to "I know how to start"
-
-Portal has been tested on Go 1.9.2 and above.
-
-### Installation
+Portal can be installed with the standard go toolchain:
 
 ```
 go get -u github.com/lthibault/portal
 ```
 
-### Bare-bones example
+## Thinking with portals
+
+### Libraries, not frameworks
+
+Portal doesn't force you to think about your program in any particular way.
+Instead, it provides you with building blocks that help manage concurrency while leaving the architectural design up to you.  This approach is considered idiomatic in Go, and is most famously embodied in `net/http` to great effect.
+
+### Principle of least surprise
+
+Portal strives to be consistent with Go's channel API.
+
+1. Sening to a closed portal panics
+1. Reveiving from a closed portal returns `nil`
+1. Portals can be unbuffered (synchronous) or buffered (asynchronous)
+
+### Socket-like
+
+Like sockets, portals communicate with each other by _binding_ a portal to an address, after which other sockets can _connect_ to that same address.
+
+Portal addresses are human-readable strings.  The only constraint is that only one portal can `Bind` to an address; a common convention is to use `/`-separated paths as addresses.  For example:  `/stream/input`.  See [below](#bare-bones-example) for an example.
+
+### Channel-like
+
+The `Portal` interface is characterized by two methods in particular:
+
+```go
+type interface Portal {
+    // ... omitted for clarity
+
+    Send(interface{})
+    Recv() interface{}
+}
+```
+
+These implement channel-like semantics that allow applications developers to _send_ and _receive_ data safely across goroutines.  The data written through one portal by a call to `Send` can be read by a connected portal via a call to `Recv`.
+
+By default, portals are unbuffered and synchronous.  This means that subsequent calls to `Send` will block until **all** connected portals have called `Recv`.  With buffered (asynchronous) portals, subsequent calls to `Send` will not block until the buffer is full.  **However**, subsequent calls to `Recv` on a given portal will block until all other connected portals have called `Recv`.
+
+## Bare-bones example
 
 Using portals is a very simple process that will feel very familiar:
 
@@ -115,11 +149,11 @@ func main() {
 }
 ```
 
-### Patterns
+## Patterns
 
 This section illustrates idiomatic design patterns for Portal.  These will help you structure your applications and avoid pitfalls.
 
-#### Type Guards
+### Type Guards
 
 `interface{}`... `interface{}` everywhere...
 
@@ -136,7 +170,7 @@ func (fg fooGuard) Send(f Foo) { fg.Portal.Send(f) }
 func (fg fooGuard) Recv() Foo { return fg.Portal.Recv().(Foo) }
 ```
 
-#### Supervision Trees
+### Supervision Trees
 
 A typical Portal application will contain several (if not dozens) of `Portal` instances.  [Supervision trees](http://www.jerf.org/iri/post/2930) are a good way handling start-up and shut-down logic in such applications.
 
@@ -174,12 +208,6 @@ func (p PairBinder) Stop() { p.Close() }
 ```
 
 An analogous `PairConnector` would then handle the connecting `Portal` instance(s).  Further generalizations of this pattern are possible, but the scope of this tutorial.
-
-## Further reading
-
-Documentation an examples for individual protocols are located in the `README.md` in each protocol subpackage (e.g.:  `protocols/sub/README.md`).
-
-If anything is unclear, please file an issue with a bit of context, and we'll make sure the documentation is improved.
 
 ## Authors
 
