@@ -5,8 +5,37 @@ import (
 
 	"github.com/SentimensRG/ctx"
 	"github.com/lthibault/portal"
-	"github.com/satori/go.uuid"
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 )
+
+const (
+	Pair = iota
+	Push
+	Pull
+	Req
+	Rep
+	Pub
+	Sub
+	Surv
+	Resp
+	Bus
+	Star
+	Brok
+	Deal
+)
+
+// EndpointsCompatible returns true if the Endpoints have compatible protocols
+func EndpointsCompatible(sig0, sig1 portal.ProtocolSignature) bool {
+	return sig0.Number() == sig1.PeerNumber() && sig0.Number() == sig1.PeerNumber()
+}
+
+// MustBeCompatible panics if the Endpoints have incompatible protocols
+func MustBeCompatible(sig0, sig1 portal.ProtocolSignature) {
+	if !EndpointsCompatible(sig0, sig1) {
+		panic(errors.Errorf("%s incompatible with %s", sig0.Name(), sig1.Name()))
+	}
+}
 
 // PeerEndpoint is the endpoint to a remote peer.
 type PeerEndpoint interface {

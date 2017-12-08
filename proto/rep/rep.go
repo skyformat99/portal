@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/lthibault/portal"
-	proto "github.com/lthibault/portal/protocol"
+	proto "github.com/lthibault/portal/proto"
 )
 
 const eqBufSize = 8

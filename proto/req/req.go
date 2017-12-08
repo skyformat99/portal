@@ -2,7 +2,7 @@ package req
 
 import (
 	"github.com/lthibault/portal"
-	proto "github.com/lthibault/portal/protocol"
+	proto "github.com/lthibault/portal/proto"
 )
 
 type req struct {

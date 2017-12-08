@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/lthibault/portal"
-	"github.com/lthibault/portal/protocol/rep"
-	"github.com/lthibault/portal/protocol/req"
+	"github.com/lthibault/portal/proto/rep"
+	"github.com/lthibault/portal/proto/req"
 )
 
 var (

@@ -109,8 +109,8 @@ import (
 
     // step 1
     "github.com/lthibault/portal"
-    "github.com/lthibault/portal/protocol/push"  
-    "github.com/lthibault/portal/protocol/pull"  
+    "github.com/lthibault/portal/proto/push"  
+    "github.com/lthibault/portal/proto/pull"  
 )
 
 // datum is some arbitrary thing we want to move around

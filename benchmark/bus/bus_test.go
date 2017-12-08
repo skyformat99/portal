@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/lthibault/portal"
-	"github.com/lthibault/portal/protocol/bus"
+	"github.com/lthibault/portal/proto/bus"
 )
 
 var (
