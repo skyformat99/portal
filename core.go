@@ -39,6 +39,9 @@ type portal struct {
 	txn    chan struct{}
 	chSend chan *Message
 	chRecv chan *Message
+
+	ProtocolSendHook
+	ProtocolRecvHook
 }
 
 func newPortal(p Protocol, cfg Cfg, cancel func()) *portal {
@@ -56,6 +59,13 @@ func newPortal(p Protocol, cfg Cfg, cancel func()) *portal {
 	ptl.proto = p
 	ptl.chSend = make(chan *Message, cfg.Size)
 	ptl.chRecv = make(chan *Message, cfg.Size)
+
+	if i, ok := interface{}(p).(ProtocolSendHook); ok {
+		ptl.ProtocolSendHook = i.(ProtocolSendHook)
+	}
+	if i, ok := interface{}(p).(ProtocolRecvHook); ok {
+		ptl.ProtocolRecvHook = i.(ProtocolRecvHook)
+	}
 
 	p.Init(ptl)
 
@@ -128,6 +138,11 @@ func (p *portal) Recv() (v interface{}) {
 
 func (p *portal) Close() { p.cancel() }
 func (p *portal) SendMsg(msg *Message) {
+	if (p.ProtocolSendHook != nil) && !p.SendHook(msg) {
+		msg.Free()
+		return // drop msg silently
+	}
+
 	select {
 	case p.chSend <- msg:
 	case <-p.Done():
@@ -135,11 +150,17 @@ func (p *portal) SendMsg(msg *Message) {
 }
 
 func (p *portal) RecvMsg() (msg *Message) {
-	select {
-	case msg = <-p.chRecv:
-	case <-p.Done():
+	for {
+		select {
+		case msg = <-p.chRecv:
+			if (p.ProtocolRecvHook != nil) && p.RecvHook(msg) {
+				return
+			} // else continue loop
+			msg.Free()
+		case <-p.Done():
+			return
+		}
 	}
-	return
 }
 
 // Implement Endpoint

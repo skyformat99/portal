@@ -97,3 +97,20 @@ type ProtocolPortal interface {
 	// instance.
 	CloseChannel() <-chan struct{}
 }
+
+// ProtocolSendHook allows protocol implementers to extend existing protocols
+type ProtocolSendHook interface {
+	// SendHook is called when the application calls Send.
+	// If false is returned, the message will be silently dropped.
+	// Note that the message may be dropped for other reasons,
+	// such as if backpressure is applied.
+	SendHook(*Message) bool
+}
+
+// ProtocolRecvHook allows protocol implementers to extend existing protocols
+type ProtocolRecvHook interface {
+	// RecvHook is called just before the message is handed to the
+	// application.  The message may be modified.  If false is returned,
+	// then the message is dropped.
+	RecvHook(*Message) bool
+}
