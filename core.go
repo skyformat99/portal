@@ -51,7 +51,7 @@ func newPortal(p Protocol, cfg Cfg, cancel func()) *portal {
 
 	ptl.Cfg = cfg
 	ptl.cancel = cancel
-	ptl.id = uuid.NewV4()
+	ptl.id = uuid.Must(uuid.NewV4())
 	ptl.txn = c
 	ptl.proto = p
 	ptl.chSend = make(chan *Message, cfg.Size)
