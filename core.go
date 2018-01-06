@@ -36,7 +36,6 @@ type portal struct {
 	proto Protocol
 	ready bool
 
-	txn    chan struct{}
 	chSend chan *Message
 	chRecv chan *Message
 
@@ -45,17 +44,11 @@ type portal struct {
 }
 
 func newPortal(p Protocol, cfg Cfg, cancel func()) *portal {
-	c := make(chan struct{})
-	if cfg.Async() {
-		close(c)
-	}
-
 	var ptl = new(portal)
 
 	ptl.Cfg = cfg
 	ptl.cancel = cancel
 	ptl.id = uuid.Must(uuid.NewV4())
-	ptl.txn = c
 	ptl.proto = p
 	ptl.chSend = make(chan *Message, cfg.Size)
 	ptl.chRecv = make(chan *Message, cfg.Size)
@@ -115,12 +108,13 @@ func (p *portal) Send(v interface{}) {
 
 	msg := NewMsg()
 	msg.Value = v
-	if !p.Async() {
-		go msg.Signal(p.txn)
-	}
 
 	p.SendMsg(msg)
-	<-p.txn // will be closed if portal is async
+
+	// // TODO: implement synchronous portal semantics
+	// if !p.Async() {
+	// 	// wait until message is delivered
+	// }
 }
 
 func (p *portal) Recv() (v interface{}) {
@@ -153,10 +147,11 @@ func (p *portal) RecvMsg() (msg *Message) {
 	for {
 		select {
 		case msg = <-p.chRecv:
-			if (p.ProtocolRecvHook != nil) && p.RecvHook(msg) {
+			if (p.ProtocolRecvHook != nil) && !p.SendHook(msg) {
+				msg.Free()
+			} else {
 				return
-			} // else continue loop
-			msg.Free()
+			}
 		case <-p.Done():
 			return
 		}
