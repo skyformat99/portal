@@ -111,10 +111,9 @@ func (p *portal) Send(v interface{}) {
 
 	p.SendMsg(msg)
 
-	// // TODO: implement synchronous portal semantics
-	// if !p.Async() {
-	// 	// wait until message is delivered
-	// }
+	if !p.Async() {
+		msg.Wait()
+	}
 }
 
 func (p *portal) Recv() (v interface{}) {
