@@ -5,17 +5,18 @@ import (
 	"github.com/lthibault/portal/proto"
 )
 
-type push struct {
+// Protocol implementing PUSH
+type Protocol struct {
 	ptl portal.ProtocolPortal
 	n   proto.Neighborhood
 }
 
-func (p *push) Init(ptl portal.ProtocolPortal) {
+func (p *Protocol) Init(ptl portal.ProtocolPortal) {
 	p.ptl = ptl
 	p.n = proto.NewNeighborhood()
 }
 
-func (p push) startSending(pe proto.PeerEndpoint) {
+func (p Protocol) startSending(pe proto.PeerEndpoint) {
 	var msg *portal.Message
 	defer func() {
 		if r := recover(); r != nil {
@@ -43,12 +44,12 @@ func (p push) startSending(pe proto.PeerEndpoint) {
 	}
 }
 
-func (push) Number() uint16     { return proto.Push }
-func (push) Name() string       { return "push" }
-func (push) PeerNumber() uint16 { return proto.Pull }
-func (push) PeerName() string   { return "pull" }
+func (Protocol) Number() uint16     { return proto.Push }
+func (Protocol) Name() string       { return "push" }
+func (Protocol) PeerNumber() uint16 { return proto.Pull }
+func (Protocol) PeerName() string   { return "pull" }
 
-func (p push) AddEndpoint(ep portal.Endpoint) {
+func (p Protocol) AddEndpoint(ep portal.Endpoint) {
 	proto.MustBeCompatible(p, ep.Signature())
 	close(p.ptl.RecvChannel()) // NOTE : if mysterious error, maybe it's this?
 
@@ -57,9 +58,9 @@ func (p push) AddEndpoint(ep portal.Endpoint) {
 	go p.startSending(pe)
 }
 
-func (p push) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
+func (p Protocol) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
 
 // New allocates a WriteOnly Portal using the PUSH protocol
 func New(cfg portal.Cfg) portal.WriteOnly {
-	return struct{ portal.WriteOnly }{portal.MakePortal(cfg, &push{})} // write guard
+	return struct{ portal.WriteOnly }{portal.MakePortal(cfg, &Protocol{})} // write guard
 }

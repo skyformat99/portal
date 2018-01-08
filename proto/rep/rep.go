@@ -9,18 +9,19 @@ import (
 
 const eqBufSize = 8
 
-type rep struct {
+// Protocol implementing REP
+type Protocol struct {
 	sync.Mutex
 	ptl portal.ProtocolPortal
 	n   proto.Neighborhood
 }
 
-func (r *rep) Init(ptl portal.ProtocolPortal) {
-	r.ptl = ptl
-	r.n = proto.NewNeighborhood()
+func (p *Protocol) Init(ptl portal.ProtocolPortal) {
+	p.ptl = ptl
+	p.n = proto.NewNeighborhood()
 }
 
-func (r *rep) startServing(pe proto.PeerEndpoint) {
+func (p *Protocol) startServing(pe proto.PeerEndpoint) {
 	var msg *portal.Message
 	defer func() {
 		if msg != nil {
@@ -32,56 +33,56 @@ func (r *rep) startServing(pe proto.PeerEndpoint) {
 		}
 	}()
 
-	cq := r.ptl.CloseChannel()
-	rq := r.ptl.RecvChannel()
-	sq := r.ptl.SendChannel()
+	cq := p.ptl.CloseChannel()
+	rq := p.ptl.RecvChannel()
+	sq := p.ptl.SendChannel()
 
 	for msg = pe.Announce(); msg != nil; msg = pe.Announce() {
-		r.Lock()
+		p.Lock()
 
 		select {
 		case <-cq:
-			r.Unlock()
+			p.Unlock()
 			return
 		case rq <- msg:
 			select {
 			case <-cq:
-				r.Unlock()
+				p.Unlock()
 				return
 			case <-pe.Done():
 				msg.Free()
-				r.Unlock()
+				p.Unlock()
 				continue
 			case msg = <-sq:
 				if msg == nil {
-					sq = r.ptl.SendChannel()
-					r.Unlock()
+					sq = p.ptl.SendChannel()
+					p.Unlock()
 				} else {
 					pe.Notify(msg)
-					r.Unlock()
+					p.Unlock()
 				}
 			}
 		}
 	}
 }
 
-func (*rep) Number() uint16     { return proto.Rep }
-func (*rep) PeerNumber() uint16 { return proto.Req }
-func (*rep) Name() string       { return "rep" }
-func (*rep) PeerName() string   { return "req" }
+func (*Protocol) Number() uint16     { return proto.Rep }
+func (*Protocol) PeerNumber() uint16 { return proto.Req }
+func (*Protocol) Name() string       { return "rep" }
+func (*Protocol) PeerName() string   { return "req" }
 
-func (r *rep) AddEndpoint(ep portal.Endpoint) {
-	proto.MustBeCompatible(r, ep.Signature())
+func (p *Protocol) AddEndpoint(ep portal.Endpoint) {
+	proto.MustBeCompatible(p, ep.Signature())
 
 	pe := proto.NewPeerEP(ep)
-	r.n.SetPeer(ep.ID(), pe)
+	p.n.SetPeer(ep.ID(), pe)
 
-	go r.startServing(pe)
+	go p.startServing(pe)
 }
 
-func (r *rep) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
+func (p *Protocol) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
 
 // New allocates a new REP portal
 func New(cfg portal.Cfg) portal.Portal {
-	return portal.MakePortal(cfg, &rep{})
+	return portal.MakePortal(cfg, &Protocol{})
 }

@@ -5,24 +5,25 @@ import (
 	proto "github.com/lthibault/portal/proto"
 )
 
-type req struct {
+// Protocol implementing REQ
+type Protocol struct {
 	ptl portal.ProtocolPortal
 	n   proto.Neighborhood
 }
 
-func (r *req) Init(ptl portal.ProtocolPortal) {
-	r.ptl = ptl
-	r.n = proto.NewNeighborhood()
+func (p *Protocol) Init(ptl portal.ProtocolPortal) {
+	p.ptl = ptl
+	p.n = proto.NewNeighborhood()
 }
 
-func (r req) startSending(pe proto.PeerEndpoint) {
+func (p Protocol) startSending(pe proto.PeerEndpoint) {
 
 	// NB: Because this function is only called when an endpoint is
 	// added, we can reasonably safely cache the channels -- they won't
 	// be changing after this point.
 
-	sq := r.ptl.SendChannel()
-	cq := r.ptl.CloseChannel()
+	sq := p.ptl.SendChannel()
+	cq := p.ptl.CloseChannel()
 
 	var msg *portal.Message
 	for {
@@ -38,7 +39,7 @@ func (r req) startSending(pe proto.PeerEndpoint) {
 	}
 }
 
-func (r req) startReceiving(ep portal.Endpoint) {
+func (p Protocol) startReceiving(ep portal.Endpoint) {
 	var msg *portal.Message
 	defer func() {
 		if msg != nil {
@@ -50,8 +51,8 @@ func (r req) startReceiving(ep portal.Endpoint) {
 		}
 	}()
 
-	rq := r.ptl.RecvChannel()
-	cq := r.ptl.CloseChannel()
+	rq := p.ptl.RecvChannel()
+	cq := p.ptl.CloseChannel()
 
 	for msg = ep.Announce(); msg != nil; msg = ep.Announce() {
 		select {
@@ -62,25 +63,25 @@ func (r req) startReceiving(ep portal.Endpoint) {
 	}
 }
 
-func (req) Number() uint16     { return proto.Req }
-func (req) PeerNumber() uint16 { return proto.Rep }
-func (req) Name() string       { return "req" }
-func (req) PeerName() string   { return "rep" }
+func (Protocol) Number() uint16     { return proto.Req }
+func (Protocol) PeerNumber() uint16 { return proto.Rep }
+func (Protocol) Name() string       { return "req" }
+func (Protocol) PeerName() string   { return "rep" }
 
-func (r req) AddEndpoint(ep portal.Endpoint) {
-	proto.MustBeCompatible(r, ep.Signature())
+func (p Protocol) AddEndpoint(ep portal.Endpoint) {
+	proto.MustBeCompatible(p, ep.Signature())
 
 	pe := proto.NewPeerEP(ep)
 
-	r.n.SetPeer(ep.ID(), pe)
+	p.n.SetPeer(ep.ID(), pe)
 
-	go r.startSending(pe)
-	go r.startReceiving(ep)
+	go p.startSending(pe)
+	go p.startReceiving(ep)
 }
 
-func (r req) RemoveEndpoint(ep portal.Endpoint) { r.n.DropPeer(ep.ID()) }
+func (p Protocol) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
 
 // New allocates a Portal using the REQ protocol
 func New(cfg portal.Cfg) portal.Portal {
-	return portal.MakePortal(cfg, &req{})
+	return portal.MakePortal(cfg, &Protocol{})
 }

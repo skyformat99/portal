@@ -72,17 +72,18 @@ func (s *subscription) Unsubscribe(t Topic) {
 	}
 }
 
-type sub struct {
+// Protocol implementing SUB
+type Protocol struct {
 	ptl  portal.ProtocolPortal
 	subs *subscription
 }
 
-func (s *sub) Init(ptl portal.ProtocolPortal) {
-	s.ptl = ptl
-	s.subs = &subscription{t: make([]Topic, 0)}
+func (p *Protocol) Init(ptl portal.ProtocolPortal) {
+	p.ptl = ptl
+	p.subs = &subscription{t: make([]Topic, 0)}
 }
 
-func (s sub) startReceiving(ep portal.Endpoint) {
+func (p Protocol) startReceiving(ep portal.Endpoint) {
 	var msg *portal.Message
 	defer func() {
 		if msg != nil {
@@ -93,11 +94,11 @@ func (s sub) startReceiving(ep portal.Endpoint) {
 		}
 	}()
 
-	rq := s.ptl.RecvChannel()
-	cq := s.ptl.CloseChannel()
+	rq := p.ptl.RecvChannel()
+	cq := p.ptl.CloseChannel()
 
 	for msg = ep.Announce(); msg != nil; ep.Announce() {
-		if s.subs.Match(msg.Value) {
+		if p.subs.Match(msg.Value) {
 			select {
 			case rq <- msg:
 			case <-cq:
@@ -109,19 +110,19 @@ func (s sub) startReceiving(ep portal.Endpoint) {
 	}
 }
 
-func (sub) Number() uint16     { return proto.Sub }
-func (sub) PeerNumber() uint16 { return proto.Pub }
-func (sub) Name() string       { return "sub" }
-func (sub) PeerName() string   { return "pub" }
+func (Protocol) Number() uint16     { return proto.Sub }
+func (Protocol) PeerNumber() uint16 { return proto.Pub }
+func (Protocol) Name() string       { return "sub" }
+func (Protocol) PeerName() string   { return "pub" }
 
-func (sub) RemoveEndpoint(portal.Endpoint) {}
-func (s sub) AddEndpoint(ep portal.Endpoint) {
-	proto.MustBeCompatible(s, ep.Signature())
-	go s.startReceiving(ep)
+func (Protocol) RemoveEndpoint(portal.Endpoint) {}
+func (p Protocol) AddEndpoint(ep portal.Endpoint) {
+	proto.MustBeCompatible(p, ep.Signature())
+	go p.startReceiving(ep)
 }
 
-func (s sub) Subscribe(t Topic) error { return s.subs.Subscribe(t) }
-func (s sub) Unsubscribe(t Topic)     { s.subs.Unsubscribe(t) }
+func (p Protocol) Subscribe(t Topic) error { return p.subs.Subscribe(t) }
+func (p Protocol) Unsubscribe(t Topic)     { p.subs.Unsubscribe(t) }
 
 // Portal adds the (Un)Subscribe methods to portal.ReadOnly
 type Portal interface {
@@ -132,12 +133,12 @@ type Portal interface {
 
 // New allocates a portal using the SUB protocol
 func New(cfg portal.Cfg) Portal {
-	s := &sub{}
+	s := &Protocol{}
 	return struct {
 		portal.ReadOnly
-		*sub
+		*Protocol
 	}{
 		ReadOnly: portal.MakePortal(cfg, s),
-		sub:      s,
+		Protocol: s,
 	}
 }

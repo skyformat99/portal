@@ -7,20 +7,22 @@ import (
 	proto "github.com/lthibault/portal/proto"
 )
 
-type bus struct {
+// Protocol implementing BUS
+type Protocol struct {
 	ptl portal.ProtocolPortal
 	n   proto.Neighborhood
 }
 
-func (b *bus) Init(ptl portal.ProtocolPortal) {
-	b.ptl = ptl
-	b.n = proto.NewNeighborhood()
-	go b.startSending()
+// Init the protocol (called by portal)
+func (p *Protocol) Init(ptl portal.ProtocolPortal) {
+	p.ptl = ptl
+	p.n = proto.NewNeighborhood()
+	go p.startSending()
 }
 
-func (b bus) startSending() {
-	sq := b.ptl.SendChannel()
-	cq := b.ptl.CloseChannel()
+func (p Protocol) startSending() {
+	sq := p.ptl.SendChannel()
+	cq := p.ptl.CloseChannel()
 
 	var wg sync.WaitGroup
 	var msg *portal.Message
@@ -30,12 +32,12 @@ func (b bus) startSending() {
 			return
 		case msg = <-sq:
 			if msg == nil {
-				sq = b.ptl.SendChannel()
+				sq = p.ptl.SendChannel()
 				continue
 			}
 
 			// broadcast
-			m, done := b.n.RMap()
+			m, done := p.n.RMap()
 			wg.Add(len(m))
 
 			for _, peer := range m {
@@ -53,7 +55,7 @@ func (b bus) startSending() {
 	}
 }
 
-func (b bus) startReceiving(pe proto.PeerEndpoint) {
+func (p Protocol) startReceiving(pe proto.PeerEndpoint) {
 	var msg *portal.Message
 	defer func() {
 		if msg != nil {
@@ -64,8 +66,8 @@ func (b bus) startReceiving(pe proto.PeerEndpoint) {
 		}
 	}()
 
-	rq := b.ptl.RecvChannel()
-	cq := b.ptl.CloseChannel()
+	rq := p.ptl.RecvChannel()
+	cq := p.ptl.CloseChannel()
 
 	for msg = pe.Announce(); msg != nil; pe.Announce() {
 		select {
@@ -76,21 +78,21 @@ func (b bus) startReceiving(pe proto.PeerEndpoint) {
 	}
 }
 
-func (b bus) AddEndpoint(ep portal.Endpoint) {
-	proto.MustBeCompatible(b, ep.Signature())
+func (p Protocol) AddEndpoint(ep portal.Endpoint) {
+	proto.MustBeCompatible(p, ep.Signature())
 	pe := proto.NewPeerEP(ep)
 
-	b.n.SetPeer(ep.ID(), pe)
+	p.n.SetPeer(ep.ID(), pe)
 }
 
-func (b bus) RemoveEndpoint(ep portal.Endpoint) { b.n.DropPeer(ep.ID()) }
+func (p Protocol) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
 
-func (bus) Number() uint16     { return proto.Bus }
-func (bus) PeerNumber() uint16 { return proto.Bus }
-func (bus) Name() string       { return "bus" }
-func (bus) PeerName() string   { return "bus" }
+func (Protocol) Number() uint16     { return proto.Bus }
+func (Protocol) PeerNumber() uint16 { return proto.Bus }
+func (Protocol) Name() string       { return "bus" }
+func (Protocol) PeerName() string   { return "bus" }
 
 // New allocates a portal using the BUS protocol
 func New(cfg portal.Cfg) portal.Portal {
-	return portal.MakePortal(cfg, &bus{})
+	return portal.MakePortal(cfg, &Protocol{})
 }

@@ -7,15 +7,17 @@ import (
 	"github.com/lthibault/portal/proto"
 )
 
-type pair struct {
+// Protocol implementing PAIR
+type Protocol struct {
 	sync.Mutex
 	ptl  portal.ProtocolPortal
 	peer proto.PeerEndpoint
 }
 
-func (p *pair) Init(ptl portal.ProtocolPortal) { p.ptl = ptl }
+// Init the Protocol
+func (p *Protocol) Init(ptl portal.ProtocolPortal) { p.ptl = ptl }
 
-func (p *pair) AddEndpoint(ep portal.Endpoint) {
+func (p *Protocol) AddEndpoint(ep portal.Endpoint) {
 	proto.MustBeCompatible(p, ep.Signature())
 
 	p.Lock()
@@ -30,7 +32,7 @@ func (p *pair) AddEndpoint(ep portal.Endpoint) {
 	}
 }
 
-func (p *pair) RemoveEndpoint(ep portal.Endpoint) {
+func (p *Protocol) RemoveEndpoint(ep portal.Endpoint) {
 	p.Lock()
 	defer p.Unlock()
 
@@ -41,12 +43,12 @@ func (p *pair) RemoveEndpoint(ep portal.Endpoint) {
 	}
 }
 
-func (*pair) Number() uint16     { return proto.Pair }
-func (*pair) Name() string       { return "pair" }
-func (*pair) PeerNumber() uint16 { return proto.Pair }
-func (*pair) PeerName() string   { return "pair" }
+func (*Protocol) Number() uint16     { return proto.Pair }
+func (*Protocol) Name() string       { return "pair" }
+func (*Protocol) PeerNumber() uint16 { return proto.Pair }
+func (*Protocol) PeerName() string   { return "pair" }
 
-func (p *pair) startReceiving() {
+func (p *Protocol) startReceiving() {
 	var msg *portal.Message
 	defer func() {
 		if msg != nil {
@@ -69,7 +71,7 @@ func (p *pair) startReceiving() {
 	}
 }
 
-func (p *pair) startSending() {
+func (p *Protocol) startSending() {
 	sq := p.ptl.SendChannel()
 	cq := p.ptl.CloseChannel()
 	pcq := p.peer.Done()
@@ -95,5 +97,5 @@ func (p *pair) startSending() {
 
 // New allocates a Portal using the PAIR protocol
 func New(cfg portal.Cfg) portal.Portal {
-	return portal.MakePortal(cfg, &pair{})
+	return portal.MakePortal(cfg, &Protocol{})
 }
