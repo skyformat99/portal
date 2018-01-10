@@ -30,9 +30,12 @@ type Message struct {
 
 // Free deallocates a message
 func (m *Message) Free() {
-	if v := atomic.AddInt32(&m.refcnt, -1); v <= 0 {
+	if v := atomic.AddInt32(&m.refcnt, -1); v == 0 {
 		m.cond.Signal()
+		atomic.StoreInt32(&m.refcnt, 1)
 		msgPool.Put(m)
+	} else if v < 0 {
+		panic("unreachable")
 	}
 }
 
