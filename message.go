@@ -45,7 +45,7 @@ func (m *Message) Free() {
 // function -- it is intended for Protocol, Transport and internal use only.
 func (m *Message) Ref() { atomic.AddInt32(&m.refcnt, 1) }
 
-// wait for the message to be delivered
+// Wait for the message to be delivered
 func (m *Message) Wait() {
 	m.cond.L.Lock()
 	m.cond.Wait()
