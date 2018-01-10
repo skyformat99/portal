@@ -3,6 +3,8 @@ package portal
 import (
 	"sync"
 	"sync/atomic"
+
+	"github.com/pkg/errors"
 )
 
 var (
@@ -30,12 +32,8 @@ type Message struct {
 
 // Free deallocates a message
 func (m *Message) Free() {
-	if v := atomic.AddInt32(&m.refcnt, -1); v == 0 {
-		m.cond.Signal()
-		atomic.StoreInt32(&m.refcnt, 1)
-		msgPool.Put(m)
-	} else if v < 0 {
-		panic("unreachable")
+	if atomic.AddInt32(&m.refcnt, -1) < 0 {
+		panic(errors.Errorf("unreachable: ref count < 0 (%d)", m.refcnt))
 	}
 }
 
@@ -45,11 +43,12 @@ func (m *Message) Free() {
 // function -- it is intended for Protocol, Transport and internal use only.
 func (m *Message) Ref() { atomic.AddInt32(&m.refcnt, 1) }
 
-// Wait for the message to be delivered
-func (m *Message) Wait() {
-	m.cond.L.Lock()
-	m.cond.Wait()
-	m.cond.L.Unlock()
+// Wait for the message to be delivered.  It MUST be called by the Send function.
+func (m *Message) wait() {
+	for atomic.CompareAndSwapInt32(&m.refcnt, 0, 1) { // block
+	}
+
+	msgPool.Put(m)
 }
 
 // NewMsg returns a message with a single refcount
