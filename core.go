@@ -85,7 +85,7 @@ func (p *portal) Connect(addr string) (err error) {
 
 func (p *portal) Bind(addr string) (err error) {
 	var l listener
-	if l, err = transport.GetListener(newBinding(p, addr, p)); err != nil {
+	if l, err = transport.GetListener(p, addr, p); err != nil {
 		err = errors.Wrap(err, "portal bind error")
 	} else {
 		go func() {
@@ -111,8 +111,10 @@ func (p *portal) Send(v interface{}) {
 
 	p.SendMsg(msg)
 
-	if !p.Async() {
-		msg.Wait()
+	if p.Async() {
+		go msg.wait()
+	} else {
+		msg.wait()
 	}
 }
 
@@ -158,9 +160,10 @@ func (p *portal) RecvMsg() (msg *Message) {
 }
 
 // Implement Endpoint
-func (p *portal) ID() uuid.UUID                { return p.id }
-func (p *portal) Notify(msg *Message)          { p.chRecv <- msg }
-func (p *portal) Announce() *Message           { return <-p.chSend }
+func (p *portal) ID() uuid.UUID { return p.id }
+
+// func (p *portal) Notify(msg *Message)          { p.chRecv <- msg }
+// func (p *portal) Announce() *Message           { return <-p.chSend }
 func (p *portal) Signature() ProtocolSignature { return p.proto }
 
 // Implement ProtocolSocket

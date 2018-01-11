@@ -50,28 +50,33 @@ type trans struct {
 	lookup map[string]*binding
 }
 
-func (t *trans) GetConnector(a string) (c connector, ok bool) {
+func (t *trans) GetConnector(addr string) (c connector, ok bool) {
 	t.RLock()
-	c, ok = t.lookup[a]
+	c, ok = t.lookup[addr]
 	t.RUnlock()
 	return
 }
 
-func (t *trans) GetListener(b *binding) (listener, error) {
+func (t *trans) GetListener(d ctx.Doner, addr string, e Endpoint) (listener, error) {
 	t.Lock()
 	defer t.Unlock()
 
+	b := newBinding(d, addr, e)
 	if _, exists := t.lookup[b.Addr()]; exists {
 		return nil, errors.Errorf("transport exists at %s", b.Addr())
 	}
 
 	t.lookup[b.Addr()] = b
-	ctx.Defer(b, func() {
+	ctx.Defer(d, t.garbageCollect(b))
+
+	return b, nil
+}
+
+func (t *trans) garbageCollect(b *binding) func() {
+	return func() {
 		b.Close()
 		t.Lock()
 		delete(t.lookup, b.Addr())
 		t.Unlock()
-	})
-
-	return b, nil
+	}
 }

@@ -49,23 +49,14 @@ func (*Protocol) PeerNumber() uint16 { return proto.Pair }
 func (*Protocol) PeerName() string   { return "pair" }
 
 func (p *Protocol) startReceiving() {
-	var msg *portal.Message
-	defer func() {
-		if msg != nil {
-			msg.Free()
-		}
-		if r := recover(); r != nil {
-			panic(r)
-		}
-	}()
-
 	rq := p.ptl.RecvChannel()
 	cq := p.ptl.CloseChannel()
 
-	for msg = p.peer.Announce(); msg != nil; p.peer.Announce() {
+	for msg := range p.peer.SendChannel() {
 		select {
 		case rq <- msg:
 		case <-cq:
+			msg.Free()
 			return
 		}
 	}
@@ -74,22 +65,20 @@ func (p *Protocol) startReceiving() {
 func (p *Protocol) startSending() {
 	sq := p.ptl.SendChannel()
 	cq := p.ptl.CloseChannel()
-	pcq := p.peer.Done()
 
 	// This is pretty easy because we have only one peer at a time.
 	// If the peer goes away, drop the message on the floor.
-	var msg *portal.Message
 	for {
 		select {
-		case <-pcq:
-			return
 		case <-cq:
 			return
-		case msg = <-sq:
-			if msg == nil {
-				sq = p.ptl.SendChannel()
-			} else {
-				p.peer.Notify(msg) // may panic
+		case msg, ok := <-sq:
+			if ok {
+				select {
+				case p.peer.RecvChannel() <- msg:
+				case <-p.peer.Done():
+					msg.Free()
+				}
 			}
 		}
 	}
