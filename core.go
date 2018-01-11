@@ -72,7 +72,7 @@ func (p *portal) Connect(addr string) (err error) {
 	}
 
 	c.Connect(p)
-	p.gc(c, c.GetEndpoint())
+	p.trackEndpoint(c, c.GetEndpoint())
 
 	p.ready = true
 	ctx.Defer(p, func() { p.ready = false })
@@ -87,7 +87,7 @@ func (p *portal) Bind(addr string) (err error) {
 	} else {
 		go func() {
 			for ep := range l.Listen() {
-				p.gc(l, ep)
+				p.trackEndpoint(l, ep)
 			}
 		}()
 	}
@@ -169,9 +169,7 @@ func (p *portal) RecvChannel() chan<- *Message  { return p.chRecv }
 func (p *portal) CloseChannel() <-chan struct{} { return p.Done() }
 
 // gc manages the lifecycle of an endpoint in the background
-func (p *portal) gc(remote ctx.Doner, ep Endpoint) {
+func (p *portal) trackEndpoint(remote ctx.Doner, ep Endpoint) {
 	p.proto.AddEndpoint(ep)
-	ctx.Defer(ctx.Link(p, remote), func() {
-		p.proto.RemoveEndpoint(ep)
-	})
+	ctx.Defer(ctx.Link(p, remote), func() { p.proto.RemoveEndpoint(ep) })
 }
