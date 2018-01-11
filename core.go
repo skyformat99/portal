@@ -75,10 +75,7 @@ func (p *portal) Connect(addr string) (err error) {
 	p.gc(c, c.GetEndpoint())
 
 	p.ready = true
-	go func() {
-		<-p.Done()
-		p.ready = false
-	}()
+	ctx.Defer(p, func() { p.ready = false })
 
 	return
 }
@@ -174,7 +171,7 @@ func (p *portal) CloseChannel() <-chan struct{} { return p.Done() }
 // gc manages the lifecycle of an endpoint in the background
 func (p *portal) gc(remote ctx.Doner, ep Endpoint) {
 	p.proto.AddEndpoint(ep)
-	ctx.Defer(ctx.Lift(ctx.Link(p, remote)), func() {
+	ctx.Defer(ctx.Link(p, remote), func() {
 		p.proto.RemoveEndpoint(ep)
 	})
 }
