@@ -138,20 +138,21 @@ func (p *portal) SendMsg(msg *Message) {
 	select {
 	case p.chSend <- msg:
 	case <-p.Done():
+		msg.Free()
 	}
 }
 
-func (p *portal) RecvMsg() (msg *Message) {
+func (p *portal) RecvMsg() *Message {
 	for {
 		select {
-		case msg = <-p.chRecv:
+		case msg := <-p.chRecv:
 			if (p.ProtocolRecvHook != nil) && !p.SendHook(msg) {
 				msg.Free()
 			} else {
-				return
+				return msg
 			}
 		case <-p.Done():
-			return
+			return nil
 		}
 	}
 }
