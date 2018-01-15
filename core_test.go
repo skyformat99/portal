@@ -367,9 +367,46 @@ func TestSendRecvClose(t *testing.T) {
 	})
 
 	t.Run("Send", func(t *testing.T) {
+		ptl, _ := mkSendRecvTestPortal(p, 1)
+		if err := ptl.Bind("/delta"); err != nil {
+			t.Errorf("failed to bind: %s", err)
+		}
+		defer ptl.Close()
+
+		ptl.Send(true)
+
+		select {
+		case msg := <-ptl.chSend:
+			if msg.refcnt != 1 {
+				t.Errorf("unexpected refcount in message (expected 1, got %d)", msg.refcnt)
+			} else if v := msg.Value.(bool); !v {
+				t.Errorf("unexpected value in message (expected true, got %v)", v)
+			}
+		default:
+			t.Error("no message in send channel")
+		}
+
 	})
 
 	t.Run("Recv", func(t *testing.T) {
+		ptl, _ := mkSendRecvTestPortal(p, 1)
+		if err := ptl.Bind("/echo"); err != nil {
+			t.Errorf("failed to bind: %s", err)
+		}
+		defer ptl.Close()
+
+		m := NewMsg()
+		m.Value = true
+		ptl.chRecv <- m
+
+		if m.refcnt != 1 { // `Recv` should have reset the refcount
+			t.Errorf("unexpected refcount in message (expected 1, got %d)", m.refcnt)
+		} else if v := ptl.Recv(); !v.(bool) {
+			t.Errorf("unexpected value in message (expected true, got %v)", v)
+		}
+
+		ptl.chRecv <- nil
+		_ = ptl.Recv() // make sure this doesn't panic from nil-ptr deref
 	})
 
 	t.Run("Close", func(t *testing.T) {
