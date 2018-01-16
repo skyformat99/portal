@@ -1,6 +1,7 @@
 package push
 
 import (
+	"github.com/SentimensRG/ctx"
 	"github.com/lthibault/portal"
 	"github.com/lthibault/portal/proto"
 )
@@ -11,34 +12,26 @@ type Protocol struct {
 	n   proto.Neighborhood
 }
 
+// Init the PUSH protocol
 func (p *Protocol) Init(ptl portal.ProtocolPortal) {
 	p.ptl = ptl
 	p.n = proto.NewNeighborhood()
 }
 
 func (p Protocol) startSending(pe proto.PeerEndpoint) {
-	var msg *portal.Message
-	defer func() {
-		if r := recover(); r != nil {
-			msg.Free()
-			panic(r)
-		}
-	}()
-
 	sq := p.ptl.SendChannel()
-	cq := p.ptl.CloseChannel()
+	rq := pe.RecvChannel()
+	cq := ctx.Link(ctx.Lift(p.ptl.CloseChannel()), pe)
 
 	for {
 		select {
 		case <-cq:
 			return
-		case <-pe.Done():
-			return
-		case msg = <-sq:
+		case msg := <-sq:
 			if msg == nil {
 				sq = p.ptl.SendChannel()
 			} else {
-				pe.Notify(msg)
+				rq <- msg
 			}
 		}
 	}

@@ -8,27 +8,18 @@ import (
 // Protocol implementing PULL
 type Protocol struct{ ptl portal.ProtocolPortal }
 
+// Init the PULL protocol
 func (p *Protocol) Init(ptl portal.ProtocolPortal) { p.ptl = ptl }
 
 func (p Protocol) startReceiving(ep portal.Endpoint) {
-	var msg *portal.Message
-	defer func() {
-		if msg != nil {
-			msg.Free()
-		}
-		if r := recover(); r != nil {
-			panic(r)
-		}
-	}()
-
 	rq := p.ptl.RecvChannel()
 	cq := p.ptl.CloseChannel()
 
-	for msg = ep.Announce(); msg != nil; ep.Announce() {
+	for msg := range ep.SendChannel() {
 		select {
-		case rq <- msg:
 		case <-cq:
 			return
+		case rq <- msg:
 		}
 	}
 }
