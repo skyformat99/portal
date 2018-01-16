@@ -24,7 +24,7 @@ func (p Protocol) startSending() {
 	sq := p.ptl.SendChannel()
 	cq := p.ptl.CloseChannel()
 
-	var wg sync.WaitGroup
+	var wg sync.WaitGroup // TODO:  optimize with CAS
 	var msg *portal.Message
 	for {
 		select {
