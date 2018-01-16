@@ -8,11 +8,13 @@ import (
 func TestMessagePool(t *testing.T) {
 	m := NewMsg()
 
-	t.Run("TestRefIncr", func(t *testing.T) {
+	t.Run("TestRefInit", func(t *testing.T) {
 		if m.refcnt != 1 {
 			t.Errorf("refcnt not initialized to 1 (%d)", m.refcnt)
 		}
+	})
 
+	t.Run("TestRefIncr", func(t *testing.T) {
 		if m.Ref(); m.refcnt != 2 {
 			t.Errorf("refcnt not incremented (%d)", m.refcnt)
 		}
@@ -31,6 +33,12 @@ func TestMessagePool(t *testing.T) {
 			close(ch)
 		}()
 
+		select {
+		case <-ch:
+			t.Errorf("call to wait did not block (refcnt=%d)", m.refcnt)
+		case <-time.After(time.Millisecond):
+		}
+
 		m.Free()
 
 		select {
@@ -42,4 +50,5 @@ func TestMessagePool(t *testing.T) {
 			t.Error("Message.wait() did not return")
 		}
 	})
+
 }

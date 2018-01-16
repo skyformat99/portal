@@ -128,7 +128,6 @@ func (p *portal) Recv() (v interface{}) {
 	return
 }
 
-func (p *portal) Close() { p.cancel() }
 func (p *portal) SendMsg(msg *Message) {
 	if (p.ProtocolSendHook != nil) && !p.SendHook(msg) {
 		msg.Free()
@@ -156,6 +155,8 @@ func (p *portal) RecvMsg() *Message {
 		}
 	}
 }
+
+func (p *portal) Close() { p.cancel() }
 
 // Implement Endpoint
 func (p *portal) ID() uuid.UUID { return p.id }

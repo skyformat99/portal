@@ -8,29 +8,6 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-type mockProtoSig struct {
-	name, peerName     string
-	number, peerNumber uint16
-}
-
-func (m mockProtoSig) Name() string       { return m.name }
-func (m mockProtoSig) PeerName() string   { return m.peerName }
-func (m mockProtoSig) Number() uint16     { return m.number }
-func (m mockProtoSig) PeerNumber() uint16 { return m.peerNumber }
-
-type mockEP struct {
-	uuid.UUID
-	sc  chan *Message
-	rc  chan *Message
-	sig mockProtoSig
-}
-
-func (m mockEP) ID() uuid.UUID                { return m.UUID }
-func (m mockEP) Close()                       {}
-func (m mockEP) RecvChannel() chan<- *Message { return m.rc }
-func (m mockEP) SendChannel() <-chan *Message { return m.sc }
-func (m mockEP) Signature() ProtocolSignature { return m.sig }
-
 func TestTransport(t *testing.T) {
 	// Overwrite global transport variable to facilitate tear-down & isolate
 	// tests

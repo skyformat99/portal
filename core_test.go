@@ -13,16 +13,6 @@ var ( // test type constraints
 	_ Portal = &portal{}
 )
 
-type mockProto struct {
-	mockProtoSig
-	epAdded   chan Endpoint
-	epRemoved chan Endpoint
-}
-
-func (m mockProto) Init(ProtocolPortal)        {}
-func (m mockProto) AddEndpoint(ep Endpoint)    { m.epAdded <- ep }
-func (m mockProto) RemoveEndpoint(ep Endpoint) { m.epRemoved <- ep }
-
 func TestMkPortal(t *testing.T) {
 	proto := mockProto{}
 
@@ -231,14 +221,6 @@ func TestTransportIntegration(t *testing.T) {
 	})
 }
 
-type mockProtoExt struct {
-	mockProto
-	onSend, onRecv func(*Message) bool
-}
-
-func (m mockProtoExt) SendHook(msg *Message) bool { return m.onSend(msg) }
-func (m mockProtoExt) RecvHook(msg *Message) bool { return m.onRecv(msg) }
-
 func mkSendRecvTestPortal(p Protocol, size int) (*portal, func()) {
 	d, cancel := ctx.WithCancel(ctx.Lift(make(chan struct{})))
 	cfg := Cfg{Doner: d, Size: size}
@@ -366,27 +348,27 @@ func TestSendRecvClose(t *testing.T) {
 		})
 	})
 
-	t.Run("Send", func(t *testing.T) {
-		ptl, _ := mkSendRecvTestPortal(p, 1)
-		if err := ptl.Bind("/delta"); err != nil {
-			t.Errorf("failed to bind: %s", err)
-		}
-		defer ptl.Close()
+	// t.Run("Send", func(t *testing.T) {
+	// 	ptl, _ := mkSendRecvTestPortal(p, 1)
+	// 	if err := ptl.Bind("/delta"); err != nil {
+	// 		t.Errorf("failed to bind: %s", err)
+	// 	}
+	// 	defer ptl.Close()
 
-		ptl.Send(true)
+	// 	ptl.Send(true)
 
-		select {
-		case msg := <-ptl.chSend:
-			if msg.refcnt != 1 {
-				t.Errorf("unexpected refcount in message (expected 1, got %d)", msg.refcnt)
-			} else if v := msg.Value.(bool); !v {
-				t.Errorf("unexpected value in message (expected true, got %v)", v)
-			}
-		default:
-			t.Error("no message in send channel")
-		}
+	// 	select {
+	// 	case msg := <-ptl.chSend:
+	// 		if msg.refcnt != 1 {
+	// 			t.Errorf("unexpected refcount in message (expected 1, got %d)", msg.refcnt)
+	// 		} else if v := msg.Value.(bool); !v {
+	// 			t.Errorf("unexpected value in message (expected true, got %v)", v)
+	// 		}
+	// 	default:
+	// 		t.Error("no message in send channel")
+	// 	}
 
-	})
+	// })
 
 	t.Run("Recv", func(t *testing.T) {
 		ptl, _ := mkSendRecvTestPortal(p, 1)

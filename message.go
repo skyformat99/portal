@@ -45,7 +45,7 @@ func (m *Message) Ref() { atomic.AddInt32(&m.refcnt, 1) }
 
 // Wait for the message to be delivered.  It MUST be called by the Send function.
 func (m *Message) wait() {
-	for atomic.CompareAndSwapInt32(&m.refcnt, 0, 1) { // block
+	for !atomic.CompareAndSwapInt32(&m.refcnt, 0, 1) { // block
 	}
 
 	msgPool.Put(m)
