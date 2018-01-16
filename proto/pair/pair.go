@@ -66,6 +66,9 @@ func (p *Protocol) startSending() {
 	sq := p.ptl.SendChannel()
 	cq := p.ptl.CloseChannel()
 
+	prq := p.peer.RecvChannel()
+	pcq := p.peer.Done()
+
 	// This is pretty easy because we have only one peer at a time.
 	// If the peer goes away, drop the message on the floor.
 	for {
@@ -75,9 +78,10 @@ func (p *Protocol) startSending() {
 		case msg, ok := <-sq:
 			if ok {
 				select {
-				case p.peer.RecvChannel() <- msg:
-				case <-p.peer.Done():
+				case prq <- msg:
+				case <-pcq:
 					msg.Free()
+					return
 				}
 			}
 		}
