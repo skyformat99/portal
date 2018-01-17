@@ -256,9 +256,6 @@ func TestSendRecvClose(t *testing.T) {
 				t.Error("value SHOULD NOT have been sent")
 				msg.Free()
 			default:
-				if msg.refcnt != 0 {
-					t.Error("message was dropped without being freed")
-				}
 			}
 		})
 
@@ -277,9 +274,6 @@ func TestSendRecvClose(t *testing.T) {
 			ptl.SendMsg(msg)
 			select {
 			case m := <-ptl.chSend:
-				if m.refcnt != 1 {
-					t.Errorf("message unexpectedly reffed or freed (refcnt=%d)", msg.refcnt)
-				}
 				if m.Value != msg.Value {
 					t.Errorf("unexpected value in message (got %v, expected %v)", m.Value, msg.Value)
 				}
@@ -311,9 +305,6 @@ func TestSendRecvClose(t *testing.T) {
 				t.Error("message SHOULD NOT have been sent")
 				msg.Free()
 			case <-time.After(time.Microsecond * 1):
-				if msg.refcnt != 0 {
-					t.Errorf("msg was dropped without being freed (refcnt=%d)", msg.refcnt)
-				}
 			}
 		})
 
@@ -335,9 +326,6 @@ func TestSendRecvClose(t *testing.T) {
 
 			select {
 			case m := <-ch:
-				if msg.refcnt != 1 {
-					t.Errorf("unexpectedly reffed or freed message (expected 1, refcnt=%d)", msg.refcnt)
-				}
 				if m.Value.(bool) != msg.Value.(bool) {
 					t.Errorf("unexpected value in message (expected %v, got %v)", msg.Value, m.Value)
 				}
@@ -381,9 +369,7 @@ func TestSendRecvClose(t *testing.T) {
 		m.Value = true
 		ptl.chRecv <- m
 
-		if m.refcnt != 1 { // `Recv` should have reset the refcount
-			t.Errorf("unexpected refcount in message (expected 1, got %d)", m.refcnt)
-		} else if v := ptl.Recv(); !v.(bool) {
+		if v := ptl.Recv(); !v.(bool) {
 			t.Errorf("unexpected value in message (expected true, got %v)", v)
 		}
 
