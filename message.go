@@ -18,6 +18,7 @@ func (pool *messagePool) Put(msg *Message) { pool.Pool.Put(msg) }
 // Message wraps a value and sends it down the portal
 type Message struct {
 	wg    sync.WaitGroup
+	From  ID
 	Value interface{}
 }
 

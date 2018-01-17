@@ -103,6 +103,7 @@ func (p *portal) Send(v interface{}) {
 	}
 
 	msg := NewMsg()
+	msg.From = p.id
 	msg.Value = v
 
 	p.SendMsg(msg)
