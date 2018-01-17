@@ -31,8 +31,6 @@ type Portal interface {
 type Endpoint interface {
 	ID() uuid.UUID
 	Close()
-	// Notify(*Message)
-	// Announce() *Message
 	SendChannel() <-chan *Message
 	RecvChannel() chan<- *Message
 	Signature() ProtocolSignature
