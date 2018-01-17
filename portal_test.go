@@ -1,7 +1,5 @@
 package portal
 
-import "github.com/satori/go.uuid"
-
 type mockProto struct {
 	mockProtoSig
 	epAdded   chan Endpoint
@@ -23,13 +21,13 @@ func (m mockProtoSig) Number() uint16     { return m.number }
 func (m mockProtoSig) PeerNumber() uint16 { return m.peerNumber }
 
 type mockEP struct {
-	uuid.UUID
+	id  ID
 	sc  chan *Message
 	rc  chan *Message
 	sig mockProtoSig
 }
 
-func (m mockEP) ID() uuid.UUID                { return m.UUID }
+func (m mockEP) ID() ID                       { return m.id }
 func (m mockEP) Close()                       {}
 func (m mockEP) RecvChannel() chan<- *Message { return m.rc }
 func (m mockEP) SendChannel() <-chan *Message { return m.sc }

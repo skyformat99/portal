@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/SentimensRG/ctx"
-	"github.com/satori/go.uuid"
 )
 
 func TestTransport(t *testing.T) {
@@ -14,13 +13,13 @@ func TestTransport(t *testing.T) {
 	transport := trans{lookup: make(map[string]*binding)}
 
 	epBind := &mockEP{
-		UUID: uuid.Must(uuid.NewV4()),
-		sig:  mockProtoSig{},
+		id:  NewID(),
+		sig: mockProtoSig{},
 	}
 
 	epConn := &mockEP{
-		UUID: uuid.Must(uuid.NewV4()),
-		sig:  mockProtoSig{},
+		id:  NewID(),
+		sig: mockProtoSig{},
 	}
 
 	d, cancel := ctx.WithCancel(ctx.Lift(make(chan struct{})))
@@ -37,8 +36,8 @@ func TestTransport(t *testing.T) {
 
 			if b, ok := transport.lookup["/test"]; !ok {
 				t.Error("*binder not found at bound address /test")
-			} else if id := b.GetEndpoint().ID(); id != epBind.UUID {
-				t.Errorf("unexpected endpoint in transport lookup table (expected %s, got %s)", id, epBind.UUID)
+			} else if id := b.GetEndpoint().ID(); id != epBind.id {
+				t.Errorf("unexpected endpoint in transport lookup table (expected %s, got %s)", id, epBind.id)
 			}
 		})
 

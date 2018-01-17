@@ -1,8 +1,12 @@
 package portal
 
-import (
-	"github.com/satori/go.uuid"
-)
+import uuid "github.com/satori/go.uuid"
+
+// ID uniquely identifies a Portal
+type ID uuid.UUID
+
+// NewID generates a unique ID
+func NewID() ID { return ID(uuid.Must(uuid.NewV4())) }
 
 // ReadOnly is the portal equivalent of <-chan
 type ReadOnly interface {
@@ -29,7 +33,7 @@ type Portal interface {
 // Endpoint is used by the Protocol implementation to access the underlying
 // channel transport
 type Endpoint interface {
-	ID() uuid.UUID
+	ID() ID
 	Close()
 	SendChannel() <-chan *Message
 	RecvChannel() chan<- *Message

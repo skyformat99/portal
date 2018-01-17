@@ -4,7 +4,6 @@ import (
 	"github.com/SentimensRG/ctx"
 	"github.com/SentimensRG/ctx/sigctx"
 	"github.com/pkg/errors"
-	"github.com/satori/go.uuid"
 )
 
 // Cfg is a base configuration struct
@@ -32,7 +31,7 @@ type portal struct {
 	Cfg
 	cancel func()
 
-	id    uuid.UUID
+	id    ID
 	proto Protocol
 	ready bool
 
@@ -48,7 +47,7 @@ func newPortal(p Protocol, cfg Cfg, cancel func()) *portal {
 
 	ptl.Cfg = cfg
 	ptl.cancel = cancel
-	ptl.id = uuid.Must(uuid.NewV4())
+	ptl.id = NewID()
 	ptl.proto = p
 	ptl.chSend = make(chan *Message, cfg.Size)
 	ptl.chRecv = make(chan *Message, cfg.Size)
@@ -159,7 +158,7 @@ func (p *portal) RecvMsg() *Message {
 func (p *portal) Close() { p.cancel() }
 
 // Implement Endpoint
-func (p *portal) ID() uuid.UUID { return p.id }
+func (p *portal) ID() ID { return p.id }
 
 // func (p *portal) Notify(msg *Message)          { p.chRecv <- msg }
 // func (p *portal) Announce() *Message           { return <-p.chSend }

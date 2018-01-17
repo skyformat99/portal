@@ -6,7 +6,6 @@ import (
 	"github.com/SentimensRG/ctx"
 	"github.com/lthibault/portal"
 	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 )
 
 const (
@@ -58,42 +57,42 @@ func (p peerEP) Close()                { close(p.cq) }
 
 // Neighborhood maintains a map of PeerEndpoints
 type Neighborhood interface {
-	RMap() (map[uuid.UUID]PeerEndpoint, func())
-	SetPeer(uuid.UUID, PeerEndpoint)
-	GetPeer(uuid.UUID) (PeerEndpoint, bool)
-	DropPeer(uuid.UUID)
+	RMap() (map[ID]PeerEndpoint, func())
+	SetPeer(ID, PeerEndpoint)
+	GetPeer(ID) (PeerEndpoint, bool)
+	DropPeer(ID)
 }
 
 // neighborhood stores connected peer endpoints
 type neighborhood struct {
 	sync.RWMutex
-	epts map[uuid.UUID]PeerEndpoint
+	epts map[ID]PeerEndpoint
 }
 
 // NewNeighborhood initializes a Neighborhood
 func NewNeighborhood() Neighborhood {
-	return &neighborhood{epts: make(map[uuid.UUID]PeerEndpoint)}
+	return &neighborhood{epts: make(map[ID]PeerEndpoint)}
 }
 
-func (n *neighborhood) RMap() (map[uuid.UUID]PeerEndpoint, func()) {
+func (n *neighborhood) RMap() (map[ID]PeerEndpoint, func()) {
 	n.RLock()
 	return n.epts, n.RUnlock
 }
 
-func (n *neighborhood) SetPeer(id uuid.UUID, pe PeerEndpoint) {
+func (n *neighborhood) SetPeer(id ID, pe PeerEndpoint) {
 	n.Lock()
 	n.epts[id] = pe
 	n.Unlock()
 }
 
-func (n *neighborhood) GetPeer(id uuid.UUID) (p PeerEndpoint, ok bool) {
+func (n *neighborhood) GetPeer(id ID) (p PeerEndpoint, ok bool) {
 	n.RLock()
 	p, ok = n.epts[id]
 	n.RUnlock()
 	return
 }
 
-func (n *neighborhood) DropPeer(id uuid.UUID) {
+func (n *neighborhood) DropPeer(id ID) {
 	n.Lock()
 	pe := n.epts[id]
 	delete(n.epts, id)
