@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/satori/go.uuid"
+	"github.com/lthibault/portal"
 )
 
 // A little copying is better than a little dependency ...
@@ -28,20 +28,9 @@ func TestEndpointsCompatible(t *testing.T) {
 	}
 }
 
-func TestPeerEndpoint(t *testing.T) {
-	pe := NewPeerEP(nil)
-	pe.Close()
-
-	select {
-	case <-pe.Done():
-	default:
-		t.Error("call to Close did not release the Done channel")
-	}
-}
-
 func TestNeighborhood(t *testing.T) {
 	n := NewNeighborhood().(*neighborhood)
-	u := uuid.Must(uuid.NewV4())
+	u := portal.NewID()
 
 	t.Run("SetPeer", func(t *testing.T) {
 		n.SetPeer(u, nil)
@@ -65,7 +54,7 @@ func TestNeighborhood(t *testing.T) {
 
 	t.Run("RMap", func(t *testing.T) {
 		for i := 0; i < 8; i++ {
-			n.SetPeer(uuid.Must(uuid.NewV4()), nil)
+			n.SetPeer(portal.NewID(), nil)
 		}
 
 		var i int
@@ -84,7 +73,7 @@ func TestNeighborhood(t *testing.T) {
 
 		select {
 		case <-ch:
-		case <-time.After(time.Microsecond * 1):
+		case <-time.After(time.Millisecond * 1):
 			t.Error("could not cycle lock; is `unlock` properly releasing it?")
 		}
 

@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"github.com/SentimensRG/ctx"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -12,15 +13,22 @@ func (id ID) String() string { return uuid.UUID(id).String() }
 // NewID generates a unique ID
 func NewID() ID { return ID(uuid.Must(uuid.NewV4())) }
 
+// Transporter can Bind and Connect to an address
+type Transporter interface {
+	Connect(string) error
+	Bind(string) error
+	Close()
+}
+
 // ReadOnly is the portal equivalent of <-chan
 type ReadOnly interface {
-	transporter
+	Transporter
 	Recv() interface{}
 }
 
 // WriteOnly is the portal equivalent of chan<-
 type WriteOnly interface {
-	transporter
+	Transporter
 	Send(interface{})
 }
 
@@ -29,7 +37,7 @@ type WriteOnly interface {
 // messaging topology.  Applications can have more than one Socket open
 // at a time.
 type Portal interface {
-	transporter
+	Transporter
 	Send(interface{})
 	Recv() interface{}
 }
@@ -37,6 +45,7 @@ type Portal interface {
 // Endpoint is used by the Protocol implementation to access the underlying
 // channel transport
 type Endpoint interface {
+	ctx.Doner
 	ID() ID
 	Close()
 	SendChannel() <-chan *Message

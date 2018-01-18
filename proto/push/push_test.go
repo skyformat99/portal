@@ -72,7 +72,7 @@ func TestIntegration(t *testing.T) {
 			t.Error("at least one pull-portal did not recv a value")
 		}
 	case <-time.After(time.Millisecond * 100):
-		t.Error("at least one pull-portal blocked")
+		t.Error("at least one pull-portal blocked (N.B.:  this error is often stochastic, appearing after recompilations)")
 	}
 
 }

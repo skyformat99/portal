@@ -19,7 +19,7 @@ func (p *Protocol) Init(ptl portal.ProtocolPortal) {
 	p.n = proto.NewNeighborhood()
 }
 
-func (p Protocol) startSending(pe proto.PeerEndpoint) {
+func (p Protocol) startSending(pe portal.Endpoint) {
 	sq := p.ptl.SendChannel()
 	rq := pe.RecvChannel()
 	cq := ctx.Link(ctx.Lift(p.ptl.CloseChannel()), pe)
@@ -45,10 +45,8 @@ func (Protocol) PeerName() string   { return "pull" }
 
 func (p Protocol) AddEndpoint(ep portal.Endpoint) {
 	proto.MustBeCompatible(p, ep.Signature())
-
-	pe := proto.NewPeerEP(ep)
-	p.n.SetPeer(ep.ID(), pe)
-	go p.startSending(pe)
+	p.n.SetPeer(ep.ID(), ep)
+	go p.startSending(ep)
 }
 
 func (p Protocol) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }

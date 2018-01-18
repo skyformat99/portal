@@ -3,7 +3,6 @@ package proto
 import (
 	"sync"
 
-	"github.com/SentimensRG/ctx"
 	"github.com/lthibault/portal"
 	"github.com/pkg/errors"
 )
@@ -36,56 +35,56 @@ func MustBeCompatible(sig0, sig1 portal.ProtocolSignature) {
 	}
 }
 
-// PeerEndpoint is the endpoint to a remote peer.
-type PeerEndpoint interface {
-	ctx.Doner
-	portal.Endpoint
-}
+// // PeerEndpoint is the endpoint to a remote peer.
+// type PeerEndpoint interface {
+// 	ctx.Doner
+// 	portal.Endpoint
+// }
 
-type peerEP struct {
-	portal.Endpoint
-	cq chan struct{}
-}
+// type peerEP struct {
+// 	portal.Endpoint
+// 	cq chan struct{}
+// }
 
-// NewPeerEP wraps an endpoint in a PeerEndpoint
-func NewPeerEP(ep portal.Endpoint) PeerEndpoint {
-	return &peerEP{Endpoint: ep, cq: make(chan struct{})}
-}
+// // NewPeerEP wraps an endpoint in a PeerEndpoint
+// func NewPeerEP(ep portal.Endpoint) PeerEndpoint {
+// 	return &peerEP{Endpoint: ep, cq: make(chan struct{})}
+// }
 
-func (p peerEP) Done() <-chan struct{} { return p.cq }
-func (p peerEP) Close()                { close(p.cq) }
+// func (p peerEP) Done() <-chan struct{} { return p.cq }
+// func (p peerEP) Close()                { close(p.cq) }
 
-// Neighborhood maintains a map of PeerEndpoints
+// Neighborhood maintains a map of portal.Endpoints
 type Neighborhood interface {
-	RMap() (map[portal.ID]PeerEndpoint, func())
-	SetPeer(portal.ID, PeerEndpoint)
-	GetPeer(portal.ID) (PeerEndpoint, bool)
+	RMap() (map[portal.ID]portal.Endpoint, func())
+	SetPeer(portal.ID, portal.Endpoint)
+	GetPeer(portal.ID) (portal.Endpoint, bool)
 	DropPeer(portal.ID)
 }
 
 // neighborhood stores connected peer endpoints
 type neighborhood struct {
 	sync.RWMutex
-	epts map[portal.ID]PeerEndpoint
+	epts map[portal.ID]portal.Endpoint
 }
 
 // NewNeighborhood initializes a Neighborhood
 func NewNeighborhood() Neighborhood {
-	return &neighborhood{epts: make(map[portal.ID]PeerEndpoint)}
+	return &neighborhood{epts: make(map[portal.ID]portal.Endpoint)}
 }
 
-func (n *neighborhood) RMap() (map[portal.ID]PeerEndpoint, func()) {
+func (n *neighborhood) RMap() (map[portal.ID]portal.Endpoint, func()) {
 	n.RLock()
 	return n.epts, n.RUnlock
 }
 
-func (n *neighborhood) SetPeer(id portal.ID, pe PeerEndpoint) {
+func (n *neighborhood) SetPeer(id portal.ID, pe portal.Endpoint) {
 	n.Lock()
 	n.epts[id] = pe
 	n.Unlock()
 }
 
-func (n *neighborhood) GetPeer(id portal.ID) (p PeerEndpoint, ok bool) {
+func (n *neighborhood) GetPeer(id portal.ID) (p portal.Endpoint, ok bool) {
 	n.RLock()
 	p, ok = n.epts[id]
 	n.RUnlock()

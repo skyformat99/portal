@@ -11,7 +11,7 @@ import (
 type Protocol struct {
 	sync.Mutex
 	ptl  portal.ProtocolPortal
-	peer proto.PeerEndpoint
+	peer portal.Endpoint
 }
 
 // Init the Protocol
@@ -26,7 +26,7 @@ func (p *Protocol) AddEndpoint(ep portal.Endpoint) {
 	if p.peer != nil { // we already have a conn, reject this one
 		ep.Close()
 	} else {
-		p.peer = proto.NewPeerEP(ep)
+		p.peer = ep
 		go p.startReceiving()
 		go p.startSending()
 	}

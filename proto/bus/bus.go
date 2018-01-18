@@ -9,13 +9,13 @@ import (
 )
 
 type busEP struct {
-	proto.PeerEndpoint
+	portal.Endpoint
 	q   chan *portal.Message
 	bus *Protocol
 }
 
 func (b busEP) close() {
-	b.PeerEndpoint.Close()
+	b.Endpoint.Close()
 	close(b.q)
 }
 
@@ -107,7 +107,7 @@ func (p Protocol) broadcast(wg *sync.WaitGroup, msg *portal.Message) *sync.WaitG
 			continue
 		}
 
-		// proto.Neighborhood stores PeerEndpoints, so we must type-assert them as *busEP
+		// proto.Neighborhood stores portal.Endpoints, so we must type-assert them as *busEP
 		wg.Add(1)
 		peer.(*busEP).sendMsg(msg.Ref())
 		wg.Done()
@@ -119,7 +119,7 @@ func (p Protocol) broadcast(wg *sync.WaitGroup, msg *portal.Message) *sync.WaitG
 func (p *Protocol) AddEndpoint(ep portal.Endpoint) {
 	proto.MustBeCompatible(p, ep.Signature())
 
-	pe := &busEP{PeerEndpoint: proto.NewPeerEP(ep), q: make(chan *portal.Message, 1), bus: p}
+	pe := &busEP{Endpoint: ep, q: make(chan *portal.Message, 1), bus: p}
 	p.n.SetPeer(ep.ID(), pe)
 	go pe.startSending()
 	go pe.startReceiving()

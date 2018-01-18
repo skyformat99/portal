@@ -68,94 +68,42 @@ func TestMkPortal(t *testing.T) {
 }
 
 func TestTransportIntegration(t *testing.T) {
-	var boundEP Endpoint
+	// BINDING PORTAL
+	bindEPAdded := make(chan Endpoint)
+	bindEPRemoved := make(chan Endpoint)
 
-	t.Run("Bind", func(t *testing.T) {
-		d, cancel := ctx.WithCancel(ctx.Lift(make(chan struct{})))
+	bindProto := mockProto{
+		epAdded:   bindEPAdded,
+		epRemoved: bindEPRemoved,
+	}
 
-		cfg := Cfg{Doner: d}
+	dBind, dCancel := ctx.WithCancel(ctx.Lift(make(chan struct{})))
 
-		ptl := newPortal(mockProto{}, cfg, cancel)
-		boundEP = ptl // will be tested in "Connect" test
+	cfg := Cfg{Doner: dBind}
 
-		if err := ptl.Bind("/test"); err != nil {
-			t.Errorf("failed to bind portal to address /test: %s", err)
-		}
+	bindP := newPortal(bindProto, cfg, dCancel)
 
-		if transport.lookup["/test"].GetEndpoint().(*portal) != ptl {
-			t.Error("mismatch between bound endpoint and portal")
-		}
-	})
+	// CONNECTING PORTAL
+	connEPAdded := make(chan Endpoint)
+	connEPRemoved := make(chan Endpoint)
 
-	t.Run("Connect", func(t *testing.T) {
-		epAdded := make(chan Endpoint)
-		epRemoved := make(chan Endpoint)
+	connProto := mockProto{
+		epAdded:   connEPAdded,
+		epRemoved: connEPRemoved,
+	}
 
-		proto := mockProto{
-			epAdded:   epAdded,
-			epRemoved: epRemoved,
-		}
+	dConn, cCancel := ctx.WithCancel(ctx.Lift(make(chan struct{})))
 
-		d, cancel := ctx.WithCancel(ctx.Lift(make(chan struct{})))
+	cfg = Cfg{Doner: dConn}
 
-		cfg := Cfg{Doner: d}
+	connP := newPortal(connProto, cfg, cCancel)
 
-		ptl := newPortal(proto, cfg, cancel)
-
-		// Connect calls portal.AddEndpoint, so we need to recv in order not to
-		// block
-
-		var g errgroup.Group
-		var ep Endpoint
-		g.Go(func() (err error) {
-			ep = <-epAdded
-			return
-		})
-
-		if err := ptl.Connect("/test"); err != nil {
-			t.Errorf("failed to connect portal to address /test: %s", err)
-		}
-
-		if g.Wait(); ep != boundEP {
-			t.Error("endpoint passed to protocol does not belong to bound portal")
-		}
-	})
+	// BIND
+	if err := bindP.Bind("/XYZ"); err != nil {
+		t.Errorf("failed to bind to addr /XYZ: %s", err)
+	}
 
 	t.Run("EndpointTransaction", func(t *testing.T) {
-		// BINDING PORTAL
-		bindEPAdded := make(chan Endpoint)
-		bindEPRemoved := make(chan Endpoint)
-
-		bindProto := mockProto{
-			epAdded:   bindEPAdded,
-			epRemoved: bindEPRemoved,
-		}
-
-		dBind, dCancel := ctx.WithCancel(ctx.Lift(make(chan struct{})))
-
-		cfg := Cfg{Doner: dBind}
-
-		bindP := newPortal(bindProto, cfg, dCancel)
-
-		// CONNECTING PORTAL
-		connEPAdded := make(chan Endpoint)
-		connEPRemoved := make(chan Endpoint)
-
-		connProto := mockProto{
-			epAdded:   connEPAdded,
-			epRemoved: connEPRemoved,
-		}
-
-		dConn, cCancel := ctx.WithCancel(ctx.Lift(make(chan struct{})))
-
-		cfg = Cfg{Doner: dConn}
-
-		connP := newPortal(connProto, cfg, cCancel)
-
-		// BIND
-		if err := bindP.Bind("/XYZ"); err != nil {
-			t.Errorf("failed to bind to addr /XYZ: %s", err)
-		}
 
 		t.Run("EndpointExchange", func(t *testing.T) {
 			var g errgroup.Group

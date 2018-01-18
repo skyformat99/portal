@@ -64,35 +64,29 @@ func newPortal(p Protocol, cfg Cfg, cancel func()) *portal {
 	return ptl
 }
 
-func (p *portal) Connect(addr string) (err error) {
-	c, ok := transport.GetConnector(addr)
-	if !ok {
-		return errors.New("connection refused")
-	}
-
-	c.Connect(p)
-	p.trackEndpoint(c, c.GetEndpoint())
-
+func (p *portal) setRunning() {
 	p.ready = true
 	ctx.Defer(p, func() { p.ready = false })
+}
+
+func (p *portal) Connect(addr string) (err error) {
+	if boundEP, err := addrTable.Lookup(addr); err != nil {
+		err = errors.Wrap(err, addr)
+	} else {
+		boundEP.ConnectEndpoint(p)
+		p.ConnectEndpoint(boundEP)
+		p.setRunning()
+	}
 
 	return
 }
 
 func (p *portal) Bind(addr string) (err error) {
-	var l listener
-	if l, err = transport.GetListener(p, addr, p); err != nil {
-		err = errors.Wrap(err, "portal bind error")
+	if err := addrTable.Assign(addr, p); err != nil {
+		err = errors.Wrap(err, addr)
 	} else {
-		go func() {
-			for ep := range l.Listen() {
-				p.trackEndpoint(l, ep)
-			}
-		}()
+		p.setRunning()
 	}
-
-	p.ready = true
-	ctx.Defer(p, func() { p.ready = false })
 
 	return
 }
@@ -170,7 +164,7 @@ func (p *portal) RecvChannel() chan<- *Message  { return p.chRecv }
 func (p *portal) CloseChannel() <-chan struct{} { return p.Done() }
 
 // gc manages the lifecycle of an endpoint in the background
-func (p *portal) trackEndpoint(remote ctx.Doner, ep Endpoint) {
+func (p *portal) ConnectEndpoint(ep Endpoint) {
 	p.proto.AddEndpoint(ep)
-	ctx.Defer(ctx.Link(p, remote), func() { p.proto.RemoveEndpoint(ep) })
+	ctx.Defer(ctx.Link(p, ep), func() { p.proto.RemoveEndpoint(ep) })
 }
