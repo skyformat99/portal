@@ -14,6 +14,7 @@ type Protocol struct {
 
 // Init the PUSH protocol
 func (p *Protocol) Init(ptl portal.ProtocolPortal) {
+	close(ptl.RecvChannel()) // NOTE : if mysterious error, maybe it's this?
 	p.ptl = ptl
 	p.n = proto.NewNeighborhood()
 }
@@ -27,8 +28,8 @@ func (p Protocol) startSending(pe proto.PeerEndpoint) {
 		select {
 		case <-cq:
 			return
-		case msg := <-sq:
-			if msg == nil {
+		case msg, ok := <-sq:
+			if !ok {
 				sq = p.ptl.SendChannel()
 			} else {
 				rq <- msg
@@ -44,7 +45,6 @@ func (Protocol) PeerName() string   { return "pull" }
 
 func (p Protocol) AddEndpoint(ep portal.Endpoint) {
 	proto.MustBeCompatible(p, ep.Signature())
-	close(p.ptl.RecvChannel()) // NOTE : if mysterious error, maybe it's this?
 
 	pe := proto.NewPeerEP(ep)
 	p.n.SetPeer(ep.ID(), pe)
