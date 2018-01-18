@@ -1,9 +1,13 @@
 package portal
 
-import uuid "github.com/satori/go.uuid"
+import (
+	uuid "github.com/satori/go.uuid"
+)
 
 // ID uniquely identifies a Portal
 type ID uuid.UUID
+
+func (id ID) String() string { return uuid.UUID(id).String() }
 
 // NewID generates a unique ID
 func NewID() ID { return ID(uuid.Must(uuid.NewV4())) }
