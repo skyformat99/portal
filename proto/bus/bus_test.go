@@ -30,35 +30,31 @@ func TestIntegration(t *testing.T) {
 		}
 	}
 
-	var wg sync.WaitGroup
+	t.Run("SendBind", func(t *testing.T) {
+		var wg sync.WaitGroup
 
-	ch := make(chan struct{})
-	go func() {
-		for {
+		ch := make(chan struct{})
+		chSync := make(chan struct{})
+		go func() {
 			wg.Add(nPtls - 1)
+			close(chSync)
 			wg.Wait()
 			ch <- struct{}{}
-		}
-	}()
+		}()
 
-	go func() {
-		for {
-			log.Printf("bindPortal recved %b", bP.Recv())
-			wg.Done()
-		}
-	}()
-
-	for i, p := range cP {
-		go func(i int, p portal.Portal) {
-			for {
+		for i, p := range cP {
+			go func(i int, p portal.Portal) {
+				<-chSync
 				log.Printf("connPortal %d recved %b", i, p.Recv())
 				wg.Done()
-			}
-		}(i, p)
-	}
+			}(i, p)
+		}
 
-	t.Run("SendBind", func(t *testing.T) {
-		go bP.Send(true)
+		go func() {
+			<-chSync
+			bP.Send(true)
+		}()
+
 		select {
 		case <-ch:
 		case <-time.After(time.Millisecond * 100):
@@ -66,14 +62,41 @@ func TestIntegration(t *testing.T) {
 		}
 	})
 
-	for i, p := range cP {
-		t.Run(fmt.Sprintf("SendPortal%d", i), func(t *testing.T) {
-			go p.Send(true)
-			select {
-			case <-ch:
-			case <-time.After(time.Millisecond * 100):
-				t.Error("at least one portal did not receive the value sent by bP")
-			}
-		})
-	}
+	t.Run("SendConn", func(t *testing.T) {
+
+		for i, p := range cP {
+			t.Run(fmt.Sprintf("SendPortal%d", i), func(t *testing.T) {
+				go p.Send(true)
+
+				bindCh := make(chan struct{})
+				connCh := make(chan struct{})
+
+				go func() {
+					_ = bP.Recv().(bool)
+					close(bindCh)
+				}()
+
+				for _, p := range cP {
+					go func(p portal.Portal) {
+						_ = p.Recv().(bool)
+						close(connCh)
+					}(p)
+				}
+
+				// bind should get it
+				select {
+				case <-bindCh:
+				case <-time.After(time.Millisecond):
+					t.Error("bound portal did not recv message")
+				}
+
+				// others should NOT get it
+				select {
+				case <-connCh:
+					t.Error("at least one connected portal erroneously recved a message")
+				case <-time.After(time.Millisecond * 10):
+				}
+			})
+		}
+	})
 }

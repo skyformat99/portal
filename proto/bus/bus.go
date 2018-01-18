@@ -8,6 +8,54 @@ import (
 	proto "github.com/lthibault/portal/proto"
 )
 
+type busEP struct {
+	proto.PeerEndpoint
+	q   chan *portal.Message
+	bus *Protocol
+}
+
+func (b busEP) close() {
+	b.PeerEndpoint.Close()
+	close(b.q)
+}
+
+func (b busEP) sendMsg(msg *portal.Message) {
+	select {
+	case b.q <- msg:
+	case <-b.Done():
+		msg.Free()
+	}
+}
+
+func (b busEP) startSending() {
+	rq := b.RecvChannel()
+	cq := b.Done()
+	for msg := range b.q {
+		select {
+		case rq <- msg:
+		case <-cq:
+			msg.Free()
+			return
+		}
+	}
+}
+
+func (b busEP) startReceiving() {
+	rq := b.bus.ptl.RecvChannel()
+	cq := ctx.Link(ctx.Lift(b.bus.ptl.CloseChannel()), b)
+
+	for msg := range b.SendChannel() {
+		msg.SetHeader(portal.HeaderSenderID, b.ID())
+
+		select {
+		case <-cq:
+			msg.Free()
+			return
+		case rq <- msg:
+		}
+	}
+}
+
 // Protocol implementing BUS
 type Protocol struct {
 	ptl portal.ProtocolPortal
@@ -22,7 +70,7 @@ func (p *Protocol) Init(ptl portal.ProtocolPortal) {
 }
 
 func (p Protocol) startSending() {
-	var wg sync.WaitGroup // TODO:  optimize with CAS (?)
+	var wg sync.WaitGroup
 
 	sq := p.ptl.SendChannel()
 	cq := p.ptl.CloseChannel()
@@ -39,45 +87,43 @@ func (p Protocol) startSending() {
 				panic("ensure portal.Doner fires closes before chSend/chRecv")
 			}
 
-			// broadcast
-			m, done := p.n.RMap()
-			wg.Add(len(m))
-
-			for _, peer := range m {
-				go unicast(&wg, peer, msg)
-			}
-
-			done()
-			wg.Wait()
+			p.broadcast(&wg, msg).Wait()
 		}
 	}
 }
 
-func unicast(wg *sync.WaitGroup, pe proto.PeerEndpoint, msg *portal.Message) {
-	select {
-	case pe.RecvChannel() <- msg.Ref():
-	case <-pe.Done():
-	}
-	wg.Done()
-}
+func (p Protocol) broadcast(wg *sync.WaitGroup, msg *portal.Message) *sync.WaitGroup {
+	m, done := p.n.RMap() // get a read-locked map-view of the Neighborhood
+	defer done()
 
-func (p Protocol) startReceiving(pe proto.PeerEndpoint) {
-	rq := p.ptl.RecvChannel()
-	cq := ctx.Link(ctx.Lift(p.ptl.CloseChannel()), pe)
-	for msg := range pe.SendChannel() {
-		select {
-		case rq <- msg:
-		case <-cq:
-			return
+	// if there's a header, it means the msg was rebroadcast
+	var msgID portal.ID
+	if v, ok := msg.GetHeader(portal.HeaderSenderID); ok {
+		msgID = v.(portal.ID)
+	}
+
+	for id, peer := range m {
+		if id == msgID {
+			continue
 		}
+
+		// proto.Neighborhood stores PeerEndpoints, so we must type-assert them as *busEP
+		wg.Add(1)
+		peer.(*busEP).sendMsg(msg.Ref())
+		wg.Done()
 	}
+
+	return wg
 }
 
-func (p Protocol) AddEndpoint(ep portal.Endpoint) {
+func (p *Protocol) AddEndpoint(ep portal.Endpoint) {
 	proto.MustBeCompatible(p, ep.Signature())
-	pe := proto.NewPeerEP(ep)
+
+	pe := &busEP{PeerEndpoint: proto.NewPeerEP(ep), q: make(chan *portal.Message, 1), bus: p}
 	p.n.SetPeer(ep.ID(), pe)
-	go p.startReceiving(pe)
+	go pe.startSending()
+	go pe.startReceiving()
+
 }
 
 func (p Protocol) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
