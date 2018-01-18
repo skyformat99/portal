@@ -57,42 +57,42 @@ func (p peerEP) Close()                { close(p.cq) }
 
 // Neighborhood maintains a map of PeerEndpoints
 type Neighborhood interface {
-	RMap() (map[ID]PeerEndpoint, func())
-	SetPeer(ID, PeerEndpoint)
-	GetPeer(ID) (PeerEndpoint, bool)
-	DropPeer(ID)
+	RMap() (map[portal.ID]PeerEndpoint, func())
+	SetPeer(portal.ID, PeerEndpoint)
+	GetPeer(portal.ID) (PeerEndpoint, bool)
+	DropPeer(portal.ID)
 }
 
 // neighborhood stores connected peer endpoints
 type neighborhood struct {
 	sync.RWMutex
-	epts map[ID]PeerEndpoint
+	epts map[portal.ID]PeerEndpoint
 }
 
 // NewNeighborhood initializes a Neighborhood
 func NewNeighborhood() Neighborhood {
-	return &neighborhood{epts: make(map[ID]PeerEndpoint)}
+	return &neighborhood{epts: make(map[portal.ID]PeerEndpoint)}
 }
 
-func (n *neighborhood) RMap() (map[ID]PeerEndpoint, func()) {
+func (n *neighborhood) RMap() (map[portal.ID]PeerEndpoint, func()) {
 	n.RLock()
 	return n.epts, n.RUnlock
 }
 
-func (n *neighborhood) SetPeer(id ID, pe PeerEndpoint) {
+func (n *neighborhood) SetPeer(id portal.ID, pe PeerEndpoint) {
 	n.Lock()
 	n.epts[id] = pe
 	n.Unlock()
 }
 
-func (n *neighborhood) GetPeer(id ID) (p PeerEndpoint, ok bool) {
+func (n *neighborhood) GetPeer(id portal.ID) (p PeerEndpoint, ok bool) {
 	n.RLock()
 	p, ok = n.epts[id]
 	n.RUnlock()
 	return
 }
 
-func (n *neighborhood) DropPeer(id ID) {
+func (n *neighborhood) DropPeer(id portal.ID) {
 	n.Lock()
 	pe := n.epts[id]
 	delete(n.epts, id)
