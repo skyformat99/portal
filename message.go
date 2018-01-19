@@ -4,14 +4,9 @@ import (
 	"sync"
 )
 
-const (
-	// HeaderSenderID identifies the sender's ID
-	HeaderSenderID HdrKey = iota
-)
-
 var (
 	msgPool = messagePool{
-		Pool: sync.Pool{New: func() interface{} { return newMsg().Ref() }},
+		Pool: sync.Pool{New: func() interface{} { return new(Message).Ref() }},
 	}
 )
 
@@ -20,35 +15,16 @@ type messagePool struct{ sync.Pool }
 func (pool *messagePool) Get() *Message    { return pool.Pool.Get().(*Message) }
 func (pool *messagePool) Put(msg *Message) { go pool.put(msg) }
 func (pool *messagePool) put(msg *Message) {
-	for k := range msg.Header {
-		delete(msg.Header, k)
-	}
+	msg.From = nil
 	pool.Pool.Put(msg)
 }
 
-// HdrKey is a key for a Header
-type HdrKey uint8
-
-// Header of message
-type Header map[HdrKey]interface{}
-
-// GetHeader the value associated with a key
-func (h Header) GetHeader(key HdrKey) (v interface{}, ok bool) {
-	v, ok = h[key]
-	return
-}
-
-// SetHeader a value to a key
-func (h Header) SetHeader(key HdrKey, v interface{}) { h[key] = v }
-
 // Message wraps a value and sends it down the portal
 type Message struct {
-	wg sync.WaitGroup
-	Header
+	wg    sync.WaitGroup
+	From  *ID
 	Value interface{}
 }
-
-func newMsg() *Message { return &Message{Header: Header(make(map[HdrKey]interface{}, 1))} }
 
 // Free deallocates a message
 func (m *Message) Free() { m.wg.Done() }

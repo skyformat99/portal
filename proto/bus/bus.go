@@ -8,6 +8,10 @@ import (
 	proto "github.com/lthibault/portal/proto"
 )
 
+type msgSender interface {
+	sendMsg(*portal.Message)
+}
+
 type busEP struct {
 	portal.Endpoint
 	q   chan *portal.Message
@@ -45,7 +49,8 @@ func (b busEP) startReceiving() {
 	cq := ctx.Link(ctx.Lift(b.bus.ptl.CloseChannel()), b)
 
 	for msg := range b.SendChannel() {
-		msg.SetHeader(portal.HeaderSenderID, b.ID())
+		id := b.ID()
+		msg.From = &id
 
 		select {
 		case <-cq:
@@ -96,24 +101,23 @@ func (p Protocol) broadcast(wg *sync.WaitGroup, msg *portal.Message) *sync.WaitG
 	m, done := p.n.RMap() // get a read-locked map-view of the Neighborhood
 	defer done()
 
-	// if there's a header, it means the msg was rebroadcast
-	var msgID portal.ID
-	if v, ok := msg.GetHeader(portal.HeaderSenderID); ok {
-		msgID = v.(portal.ID)
-	}
-
 	for id, peer := range m {
-		if id == msgID {
+		// if there's a header, it means the msg was rebroadcast
+		if id == *msg.From {
 			continue
 		}
 
-		// proto.Neighborhood stores portal.Endpoints, so we must type-assert them as *busEP
-		wg.Add(1)
-		peer.(*busEP).sendMsg(msg.Ref())
-		wg.Done()
+		// proto.Neighborhood stores portal.Endpoints, so we must type-assert
+		go p.unicast(wg, peer.(msgSender), msg)
 	}
 
 	return wg
+}
+
+func (p Protocol) unicast(wg *sync.WaitGroup, s msgSender, msg *portal.Message) {
+	wg.Add(1)
+	s.sendMsg(msg.Ref())
+	wg.Done()
 }
 
 func (p *Protocol) AddEndpoint(ep portal.Endpoint) {
@@ -123,7 +127,6 @@ func (p *Protocol) AddEndpoint(ep portal.Endpoint) {
 	p.n.SetPeer(ep.ID(), pe)
 	go pe.startSending()
 	go pe.startReceiving()
-
 }
 
 func (p Protocol) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
