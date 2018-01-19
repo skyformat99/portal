@@ -84,20 +84,10 @@ func (p *Protocol) Init(ptl portal.ProtocolPortal) {
 }
 
 func (p Protocol) startReceiving(ep portal.Endpoint) {
-	var msg *portal.Message
-	defer func() {
-		if msg != nil {
-			msg.Free()
-		}
-		if r := recover(); r != nil {
-			panic(r)
-		}
-	}()
-
 	rq := p.ptl.RecvChannel()
 	cq := p.ptl.CloseChannel()
 
-	for msg = ep.Announce(); msg != nil; ep.Announce() {
+	for msg := range ep.SendChannel() {
 		if p.subs.Match(msg.Value) {
 			select {
 			case rq <- msg:

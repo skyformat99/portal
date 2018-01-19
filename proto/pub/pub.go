@@ -26,39 +26,38 @@ func (p Protocol) startSending() {
 
 	var wg sync.WaitGroup
 
-	var msg *portal.Message
 	for {
 		select {
 		case <-cq:
 			return
-		case msg = <-sq:
-			if msg == nil {
-				sq = p.ptl.SendChannel()
-			} else {
-				m, done := p.n.RMap()
-				wg.Add(len(m))
-
-				for _, peer := range m {
-					go func(peer proto.PeerEndpoint) {
-						msg.Ref()
-						peer.Notify(msg)
-						wg.Done()
-					}(peer)
-				}
-
-				done()
-				msg.Free()
-				wg.Wait()
+		case msg, ok := <-sq:
+			if !ok {
+				// This should never happen.  If it does, the channels were not
+				// closed in the correct order
+				// TODO:  remove once tested & stable
+				panic("ensure portal.Doner fires closes before chSend/chRecv")
 			}
+
+			m, done := p.n.RMap()
+			wg.Add(len(m))
+
+			for _, peer := range m {
+				go func(p portal.Endpoint) {
+					p.RecvChannel() <- msg.Ref()
+					wg.Done()
+				}(peer)
+			}
+
+			done()
+			wg.Wait()
+			msg.Free()
 		}
 	}
 }
 
 func (p Protocol) AddEndpoint(ep portal.Endpoint) {
 	proto.MustBeCompatible(p, ep.Signature())
-
-	pe := proto.NewPeerEP(ep)
-	p.n.SetPeer(ep.ID(), pe)
+	p.n.SetPeer(ep.ID(), ep)
 }
 
 func (p Protocol) RemoveEndpoint(ep portal.Endpoint) { p.n.DropPeer(ep.ID()) }
