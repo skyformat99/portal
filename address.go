@@ -2,31 +2,55 @@ package portal
 
 import (
 	"sync"
+	"unsafe"
 
 	"github.com/SentimensRG/ctx"
+	radix "github.com/armon/go-radix"
 	"github.com/pkg/errors"
 )
 
-var addrTable = addrSpace{slots: make(map[string]boundEndpoint)}
+var addrTable = addrSpace{slots: newSlotTable()}
 
 type boundEndpoint interface {
 	Endpoint
 	ConnectEndpoint(Endpoint)
 }
+type slotTable radix.Tree
+
+func newSlotTable() *slotTable { return (*slotTable)(unsafe.Pointer(radix.New())) }
+
+func (s *slotTable) Occupied(slot string) (exists bool) {
+	_, exists = s.Get(slot)
+	return
+}
+
+func (s *slotTable) Insert(slot string, ep boundEndpoint) {
+	(*radix.Tree)(unsafe.Pointer(s)).Insert(slot, ep)
+}
+
+func (s *slotTable) Get(slot string) (ep boundEndpoint, ok bool) {
+	var v interface{}
+	if v, ok = (*radix.Tree)(unsafe.Pointer(s)).Get(slot); ok {
+		ep = v.(boundEndpoint)
+	}
+	return
+}
+
+func (s *slotTable) Del(slot string) { (*radix.Tree)(unsafe.Pointer(s)).Delete(slot) }
 
 type addrSpace struct {
 	sync.RWMutex
-	slots map[string]boundEndpoint
+	slots *slotTable
 }
 
 func (a *addrSpace) Assign(addr string, ep boundEndpoint) (err error) {
 	a.Lock()
 	defer a.Unlock()
 
-	if _, exists := a.slots[addr]; exists {
+	if a.slots.Occupied(addr) {
 		err = errors.New("address in use")
 	} else {
-		a.slots[addr] = ep
+		a.slots.Insert(addr, ep)
 		ctx.Defer(ep, a.releaseSlot(addr))
 	}
 
@@ -38,7 +62,7 @@ func (a *addrSpace) Lookup(addr string) (ep boundEndpoint, err error) {
 	defer a.RUnlock()
 
 	var ok bool
-	if ep, ok = a.slots[addr]; !ok {
+	if ep, ok = a.slots.Get(addr); !ok {
 		err = errors.New("unbound address")
 	}
 
@@ -48,7 +72,7 @@ func (a *addrSpace) Lookup(addr string) (ep boundEndpoint, err error) {
 func (a *addrSpace) releaseSlot(addr string) func() {
 	return func() {
 		a.Lock()
-		delete(a.slots, addr)
+		a.slots.Del(addr)
 		a.Unlock()
 	}
 }
